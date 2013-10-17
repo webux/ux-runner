@@ -2,8 +2,8 @@
 ----------
 Runner is a scenario runner. While it can also be used as an e2e tester, it is used to perform scenarios within an application. It will not navigate to different urls because it runs within the current app.
 
-## Advantages over protractor or carma ##
-**Protractor and carma both work directly off of angular digests.** While this initially sounds like it has some advantages it ends up being more of a crutch than helpful. Because of any digests get out of sync then the test are stuck even though the application is working fine. 
+## Advantages over protractor or karma ##
+**Protractor and karma both work directly off of angular digests.** While this initially sounds like it has some advantages it ends up being more of a crutch than helpful. Because of any digests get out of sync then the test are stuck even though the application is working fine. 
 
 **Live adding of steps allows for conditions.** This allows you to do something that you cannot do in the other applications, conditions. Conditions make a scenario runner smart. There is a need for this. Unit tests are meant to be dumb, but end to end tests are meant to be smart because your application has modes and conditions. Let's say for example that have to have a user select an account of theirs to work with before the can get to another portion of their app. Well with live steps you can wrap your condition within a step to check for the account selection and if selected run the scenarios you had planned, but if not then select the account first, then run the scenarios you had planned.
 
