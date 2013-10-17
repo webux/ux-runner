@@ -1,0 +1,62 @@
+.runner-overlay {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    font-family: arial;
+    overflow: auto;
+}
+
+.runner-highlighter {
+    outline: 1px solid #FF0000;
+    position: absolute;
+}
+
+.runner-content {
+    position: relative;
+    float: left;
+    width: auto;
+    padding: 10px;
+    background-color: rgba(0, 0, 0, 0.75);
+}
+
+.runner-title {
+    padding: 10px;
+    margin-top: 40px;
+    color: #FFFFFF;
+    background-color: rgba(0, 0, 0, 0.75);
+}
+
+.runner-scenario {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.runner-describe {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.runner-it {
+    font-size: 14px;
+    font-weight: normal;
+}
+
+.runner-step {
+    font-size: 12px;
+    font-weight: normal;
+}
+
+.runner-pending {
+    color: #3498db;
+}
+
+.runner-pass {
+    color: #27ae60;
+}
+
+.runner-fail {
+    color: #c0392b;
+}

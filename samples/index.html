@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html ng-app="app">
+<head>
+    <title>Tester</title>
+    <link rel="stylesheet" type="text/css" href="ux-tester.css">
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.1.5/angular.min.js"></script>
+    <script src="../src/ux-runner.js"></script>
+    <script src="../src/sendKeys.js"></script>
+    <script src="../src/renderer.js"></script>
+    <script src="../src/scenarios.js"></script>
+    <script>
+
+        function Root($scope) {
+            $scope.running = "true";
+        }
+
+        angular.module('app', ['ng', 'runner']).run();
+
+    </script>
+</head>
+<body data-ng-controller="Root">
+{{running}}
+    <a href="" onclick="javascript:alert('click happened')">Test 1</a>
+    <a href="">Test 2</a>
+    <input type="text" ng-model="testNgValue">
+{{testNgValue}}
+</body>
+</html>
