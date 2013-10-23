@@ -2,25 +2,14 @@
 ----------
 Runner is a scenario runner. While it can also be used as an e2e tester, it is used to perform scenarios within an application. It will not navigate to different urls because it runs within the current app.
 
-## Quick Test ##
-For a quick lap with runner, go to GFS. In the console type:
-
-	runner.run()
-
-It will run through a default scenario. You will see the output of scenarios and steps that have passed and failed.
-
-To exit runner, in the console type:
-
-	runner.stop()
-
-## Advantages over Protractor or Karma ##
-**Protractor and Karma both work directly off of Angular digests.** While this initially sounds like it has some advantages it ends up being more of a crutch than helpful. Because of any digests get out of sync then the test are stuck even though the application is working fine. 
+## Advantages over protractor or karma ##
+**Protractor and karma both work directly off of angular digests.** While this initially sounds like it has some advantages it ends up being more of a crutch than helpful. Because of any digests get out of sync then the test are stuck even though the application is working fine. 
 
 **Live adding of steps allows for conditions.** This allows you to do something that you cannot do in the other applications, conditions. Conditions make a scenario runner smart. There is a need for this. Unit tests are meant to be dumb, but end to end tests are meant to be smart because your application has modes and conditions. Let's say for example that have to have a user select an account of theirs to work with before the can get to another portion of their app. Well with live steps you can wrap your condition within a step to check for the account selection and if selected run the scenarios you had planned, but if not then select the account first, then run the scenarios you had planned.
 
 **Injection** We all love Angular and one of my favorite features of it is injection. So runner leverages Angular's injection to make your tests easier. Scenarios can inject methods that you need from runners as well as from your app. See "using injections" below.
 
-**jQuery selectors** Yes I know you shouldn't use jQuery with Angular. But it is so much easier than trying to find which model property something is binding to. And because we look for selectors it is easy to wait for them. Runner is built on the concept of waiting. So for "find" it will keep trying to select that item until it times out. This means that if your application is running slow, multiple service calls, or misc other things before it is ready that is not a problem. You just increase the timeout time so it will keep trying as long as there is time.
+**jQuery selectors** yes I know you shouldn't use jQuery with Angular. But it is so much easier than trying to find which model property something is binding to. And because we look for selectors it is easy to wait for them. Runner is built on the concept of waiting. So for "find" it will keep trying to select that item until it times out. This means that if your application is running slow, multiple service calls, or misc other things before it is ready that is not a problem. You just increase the timeout time so it will keep trying as long as there is time.
 
 ## Getting Started ##
 The following files are included in the application.
@@ -66,26 +55,18 @@ You can run a single, multiple, or all scenarios. Runner uses the console to sta
 
 	runner.run('scenario1', 'addItemsToCart', 'submitCart')
 
-**Exit runner**
-
-	runner.stop()
-
 ## Using Injections ##
 Scenarios and steps have the ability to use injection both from runner and from the app you are testing. As you can see in the example below "userModel" is injected into scenario while "loginModel" is injected into step.
 
 	scenario("Test my page", function (userModel) {
-		if (!userModel.username) {
+		if (!user.username) {
 			step("login user", function (loginModel) {
-				loginModel.login('john', 'password');
+				loginModel.login('user1', 'angularRocks');
 			});
 		}
 	}
 
-To view all available injectable methods, in the browser console, type:
-
-	runner.locals
-
-You can also use this to link other functions from runner. This example injects "waitFor" and "options". Both of which are defined on runner. 
+You can also use this to link other functions from runner. This example injects waitFor as well as options. Both of which are defined on runner. (see runner.locals for all possible injections from runner).
 
 	scenario("Test my page", function() {
 		step("wait for page to load", function (waitFor, options) {
@@ -115,7 +96,7 @@ In this example we have created the method "selectAccount". This method defines 
             };
     });
 
-So the real trick here is that it adds this method to the locals. (Visit [http://docs.angularjs.org/api/AUTO.$injector](http://docs.angularjs.org/api/AUTO.$injector) if you want to learn more about $injector and locals).So now just like any other methods, you can now get this one injected into your scenario. Let's show an example of "selectAccount" being injected and used.
+So the real trick here is that it adds this method to the locals. So now just like any other methods, you can now get this one injected into your scenario. Let's show an example of "selectAccount" being injected and used.
 
 	angular.module("runner").run(function () {
 	    runner.addScenario('searchCatalog', function scenarios(scenario, step, find, options, selectAccount) {
@@ -133,7 +114,7 @@ So the real trick here is that it adds this method to the locals. (Visit [http:/
     });
 
 ## API ##
-The methods that are already defined, fall into a couple of categories. There are methods that are part of the runner api, and then the are also jQuery methods that are added as part of the find and any of it's chain methods.
+The methods that are already defined fall into a couple of categories. There are methods that are part of the runner api, and then the are also jQuery methods that are added as part of the find and any of it's chain methods.
 
 - **scenario** (label:String, method:function): create a new scenario
 - **step**(label:String, method:function, validate:function, timeout:Milliseconds): creates a new step. Validate is a second method that you can pass that will check a condition. If the condition returns true it passes, if it returns false it fails, if you fail to pass it then it passes.
@@ -145,8 +126,8 @@ The methods that are already defined, fall into a couple of categories. There ar
 
 For the find API it is like jQuery methods except one additional few that are quite note worthy. So you have your standard, click, focus, blur, etc.
 
-- **mouseClick()**: this does a series of other methods to simulate a more realistic event. This will do a mousedown, focus, mouseup, click. This simulates the actual event pattern when a user clicks. It can be handy if you have directives on inputs that are listening for something particular in the sequence.
-- **sendKeys()**: See heading below.
+- mouseClick(): this does a series of other methods to simulate a more realistic event. This will do a mousedown, focus, mouseup, click. This simulates the actual event pattern when a user clicks. It can be handy if you have directives on inputs that are listening for something particular in the sequence.
+- sendKeys(): uh,... this one is a topic all of it's own. So check the heading below.
 
 Info events can be chained. So you can do one selection and then do multiple chained events.
 
@@ -155,9 +136,9 @@ Info events can be chained. So you can do one selection and then do multiple cha
 **[TODO]** There is a bug with sendKeys()... that it won't chain after it. It will chain up to it.
 
 ## sendKeys ##
-Send keys simulates user input. It takes patterns from a string and executes those patterns on a DOM element. Here is an example string.
+Send keys simulates user input. It takes patterns from a string to enter those values into input fields. Here is an example string.
 
-	find(".searchInput").sendKeys('"Yo! What's Up!" enter');
+	find("input").sendKeys('"Yo! What's Up!" enter');
 
 So what this does is find the input. Then it sends the keys into the input for the string in the quotes then it will do an enter key event when done. Pretty slick eh?
 
