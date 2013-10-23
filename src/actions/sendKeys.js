@@ -41,7 +41,7 @@
         while (i < len) {
             val = acl[i];
             action = val.match(/[^"]+/gim)[0];
-            if (typeof kdb[action] === 'function') {
+            if (typeof kbd[action] === 'function') {
                 kbd[action]();
             } else {
                 kbd.type(action);
