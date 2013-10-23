@@ -26,7 +26,7 @@
             overlay.mouseup(function () {
                 isMouseDown = false;
             });
-            $(document).blur(function(event) {
+            $(document).blur(function (event) {
                 if (isMouseDown) {
                     killEvent(event);
                 }
@@ -55,7 +55,7 @@
         }
 
         function stepEnd(event, step) {
-            $('#' + step.id).addClass('runner-' + (step.pass ? 'pass' : 'fail'));
+            $('#' + step.id).addClass('runner-' + (step.pass ? 'pass' : 'fail')).text(step.label);
             updateHighlight(step.element);
         }
 
@@ -81,26 +81,20 @@
         runner.stop = close;
 
         function waitForScope() {
-            var $rootScope;
-            if (!angular.element(document).injector) {
-                setTimeout(waitForScope, 100);
-            } else if (!injector) {
-                injector = angular.element(document).injector();
-                setTimeout(waitForScope, 100);
-            } else {
-                $rootScope = injector.get('$rootScope');
-                $rootScope.$on(runner.events.START, start);
-                $rootScope.$on(runner.events.STEP_START, stepStart);
-                $rootScope.$on(runner.events.STEP_END, stepEnd);
-                $rootScope.$on(runner.events.DONE, done);
-            }
+            var body = $('body');
+            body.ready(function () {
+                var body = $('body');
+                body.bind(runner.events.START, start);
+                body.bind(runner.events.STEP_START, stepStart);
+                body.bind(runner.events.STEP_END, stepEnd);
+                body.bind(runner.events.DONE, done);
+            });
         }
+
         waitForScope();
 
         return exports;
     }
 
-    angular.module('runner').run(function () {
-        renderer();
-    })
+    renderer();
 }());

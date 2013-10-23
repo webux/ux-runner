@@ -6,16 +6,19 @@
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.1.5/angular.min.js"></script>
     <script src="../src/ux-runner.js"></script>
-    <script src="../src/sendKeys.js"></script>
+    <script src="../src/actions/sendKeys.js"></script>
+    <script src="../src/actions/sendMouse.js"></script>
+    <script src="../src/actions/sendTap.js"></script>
+    <script src="../src/expects/toBe.js"></script>
     <script src="../src/renderer.js"></script>
-    <script src="../src/scenarios.js"></script>
+    <script src="../test/e2e/scenarios.js"></script>
     <script>
 
         function Root($scope) {
             $scope.running = "true";
         }
 
-        angular.module('app', ['ng', 'runner']).run();
+        angular.module('app', ['ng']).run();
 
     </script>
 </head>

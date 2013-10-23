@@ -8,7 +8,7 @@
 
         scenario("Datagrid Tests", function () {
             step("should test this", function () {
-                find("a:eq(0)", options.timeouts.short).mouseClick().html('I got clicked');
+                find("a:eq(0)", options.timeouts.short).sendMouse().html('I got clicked');
 //                find("a:eq(0)", options.timeouts.short).html('I got clicked');
                 find("a:eq(0)").text();
 //                waitFor("waiting for something", function() {
@@ -26,16 +26,14 @@
                 });
 
                 step("should set the text", function () {
-                    find("input").focus().sendKeys('test', 'test');
+                    find("input").focus().select().sendKeys('test', 'test');
 //                    find("input").enter();
                 });
             })
         });
     }
 
-    angular.module("runner").run(function () {
-        runner.addScenario('scenario1', scenarios);
-        runner.addScenario('scenario2', scenarios); // add it twice so we can test that tings are running.
-    });
+    runner.addScenario('scenario1', scenarios);
+    runner.addScenario('scenario2', scenarios); // add it twice so we can test that tings are running.
 
 }());

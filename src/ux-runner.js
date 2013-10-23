@@ -52,9 +52,9 @@
         intv,
         scenarios = [],
         debug = true,
-        jqMethods = ['focus', 'blur', 'click', 'mousedown', 'mouseover', 'mouseup', 'select'],
-        jqAccessors = ['val', 'text', 'html'],
-        $rootScope;
+    //TODO: make jqMethods and jqAccessors public so that they can be added to for new jquery methods. jqMethods resturn the element, jqAccessors return the value.
+        jqMethods = ['focus', 'blur', 'click', 'mousedown', 'mouseover', 'mouseup', 'select', 'touchstart', 'touchend', 'trigger'],
+        jqAccessors = ['val', 'text', 'html'];
 
     if (!Math.uuid) {
         var c = 0;
@@ -75,15 +75,13 @@
     }
 
     function dispatch(event) {
-        $rootScope.$broadcast.apply($rootScope, arguments);
+        var body = $('body');
+        body.trigger.apply(body, arguments);
     }
 
     function init() {
-        if (!injector) {
-            injector = angular.element(document).injector();
-            runner.locals.injector = injector;
-            $rootScope = injector.get('$rootScope');
-        }
+        injector = runner.getInjector ? runner.getInjector() : {invoke: invoke};
+        runner.locals.injector = injector;
     }
 
     function setup() {
@@ -196,10 +194,18 @@
             }
         }
 
+        function exec(method) {
+            if (method) {
+                return !!injector.invoke(method, exports, locals);
+            }
+            return true;
+        }
+
         function finalize() {
-            injector.invoke(exports.method, exports, locals);
+//TODO: need to break out injector.
+            exec(exports.method);
             var now = Date.now();
-            exports.pass = exports.validate ? !!injector.invoke(exports.validate, exports) : true;
+            exports.pass = exec(exports.validate);
             exports.count += 1;
             if (exports.repeat > exports.count && !exports.pass && exports.timeout + exports.startTime > now) {
                 log("%s%s: checking %s", charPack("\t", exports.depth), exports.type, exports.label);
@@ -299,6 +305,12 @@
         });
     }
 
+    function chainMethodPreExec(step, el, name, args) {
+        if (name === 'trigger') {
+            step.label = 'trigger "' + args[0].toUpperCase() + '"';
+        }
+    }
+
     function jqMethod(target, name, validate) {
         return function () {
             var args = arguments,
@@ -313,6 +325,7 @@
                             throw new Error("Method \"" + name + "\" is not supported yet.");
                             return;
                         }
+                        chainMethodPreExec(s, el, name, args);
                         el[name].apply(el, args);
                         if (validate) {
                             s.value = el[name].apply(el, []);
@@ -338,7 +351,6 @@
     function addJQ(target) {
         createJqMethods(target);
         createJqAccessors(target);
-        addMouseClick(target);
         each(runner.elementMethods, addElementMethods, target);
     }
 
@@ -359,7 +371,11 @@
     }
 
     function addElementMethods(stepData, index, list, target) {
-        target[stepData.name] = stepData.method(target);
+        if (typeof stepData === "function") {
+            stepData(target);
+        } else {
+            target[stepData.name] = stepData.method(target);
+        }
     }
 
     function find(selector, timeout, label) {
@@ -374,12 +390,33 @@
                 return s;
             },
             validate: function () {
-                return !!s.value.length;
+                var result = !!s.value.length;
+                s.label = (result ? 'found(' + s.element.length + '):' : 'could not find') + ' \"' + selector + '\"';
+                return result;
             },
             timeout: timeout
         };
         createElementStep(s);
         return s;
+    }
+
+    function invoke(fn, scope, locals) {
+        var injectables = getInjectables(fn, locals);
+        return fn.apply(scope, injectables.args);
+    }
+
+    function getInjectables(fn, locals) {
+        var str = fn.toString(), result = {map:{}, args:[], locals: locals}, list,
+            params = str.match(/\(.*\)/)[0].match(/([\$\w])+/gm);
+        if (params && params.length > 1) {
+            each(params, addInjection, result);
+        }
+        return result;
+    }
+
+    function addInjection(name, index, list, data) {
+        data.map[name] = data.locals[name] || window[name];
+        data.args.push(data.map[name]);
     }
 
     function addScenario(name, scenario) {
@@ -438,13 +475,8 @@
         activeStep.run();
     }
 
-    function addMouseClick (target) {
-        target.mouseClick = function () {
-            return target.mousedown().focus().mouseup().click();
-        };
-    }
-
     runner = {
+        getInjector: null,
         config: applyConfig,
         run: run,
         addScenario: addScenario,
@@ -456,6 +488,7 @@
         createElementStep: createElementStep,
         args: [],
         elementMethods: [],
+        scenarios: {}, // external stub for constants.
         locals: locals
     };
     locals.scenario = describe;
@@ -465,13 +498,5 @@
     locals.waitFor = waitFor;
     locals.waitForNgEvent = waitForNgEvent;
 
-    try {
-        module = angular.module("runner");
-    } catch (e) {
-        module = angular.module("runner", []);
-    }
-
-    module.run(function () {
-        window.runner = runner;
-    });
+    window.runner = runner;
 }());

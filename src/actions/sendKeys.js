@@ -1,11 +1,12 @@
-/*global */
+/*global jQuery*/
 (function () {
     'use strict';
     function Keyboard(el, lock) {
         this.el = el;
         this.scope = el.scope();
-        this.selStart = el.getSelectionStart();
-        this.selEnd = el.getSelectionEnd();
+        this.selStart = el.getSelectionStart() || el.val().length - 1;
+        this.selEnd = el.getSelectionEnd() || el.val().length - 1;
+        el.setSelection(this.selStart, this.selEnd);
         this.cursorPosition = this.selStart;
 
         var editableTypes = "text password number email url search tel";
@@ -314,24 +315,24 @@
  */
 
 (function ($) {
-    jQuery.fn.getCursorPosition = function () {
+    $.fn.getCursorPosition = function () {
         if (this.lengh == 0) return -1;
         return $(this).getSelectionStart();
-    }
+    };
 
-    jQuery.fn.setCursorPosition = function (position) {
+    $.fn.setCursorPosition = function (position) {
         if (this.lengh == 0) return this;
         return $(this).setSelection(position, position);
-    }
+    };
 
-    jQuery.fn.getSelection = function () {
+    $.fn.getSelection = function () {
         if (this.lengh == 0) return -1;
         var s = $(this).getSelectionStart();
         var e = $(this).getSelectionEnd();
         return this[0].value.substring(s, e);
-    }
+    };
 
-    jQuery.fn.getSelectionStart = function () {
+    $.fn.getSelectionStart = function () {
         if (this.lengh == 0) return -1;
         input = this[0];
 
@@ -347,9 +348,9 @@
             pos = input.selectionStart;
 
         return pos;
-    }
+    };
 
-    jQuery.fn.getSelectionEnd = function () {
+    $.fn.getSelectionEnd = function () {
         if (this.lengh == 0) return -1;
         input = this[0];
 
@@ -365,9 +366,9 @@
             pos = input.selectionEnd;
 
         return pos;
-    }
+    };
 
-    jQuery.fn.setSelection = function (selectionStart, selectionEnd) {
+    $.fn.setSelection = function (selectionStart, selectionEnd) {
         if (this.lengh == 0) return this;
         input = this[0];
 
@@ -383,5 +384,5 @@
         }
 
         return this;
-    }
-})(jQuery);
+    };
+}(jQuery));
