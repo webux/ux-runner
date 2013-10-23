@@ -6,6 +6,7 @@
     'use strict';
     function Keyboard(el, lock) {
         this.el = el;
+        // TODO: Break out AngularJS
         this.scope = el.scope();
 
         var editableTypes = "text password number email url search tel";
@@ -34,17 +35,20 @@
     Keyboard.exec = function (el/*:jQuery*/, actions/*:String*/) {
         var kbd = new Keyboard(el),
             acl = actions.match(/"[^"]+"|\w+/gim),
-            action;
+            action, val, i = 0, len = acl.length;
         kbd.lock();
-        angular.forEach(acl, function (val, key) {
+
+        while (i < len) {
+            val = acl[i];
             action = val.match(/[^"]+/gim)[0];
-            if (angular.isFunction(kbd[action])) {
+            if (typeof kdb[action] === 'function') {
                 kbd[action]();
             } else {
                 kbd.type(action);
             }
             kbd.release();
-        });
+            i += 1;
+        }
     };
 
     var proto = Keyboard.prototype;
@@ -110,12 +114,14 @@
                 val = el.val();
                 val = val.substr(0, curPos) + char + val.substr(curPos);
                 if (attr) {
+                    // TODO: Break out AngularJS
                     scope.$eval(attr + ' = "' + val + '"');
                 }
                 el.val(val);
                 this.cursorPosition += 1;
             }
             // invoke angular change event
+            // TODO: Break out AngularJS
             scope.$eval(this.attr('ng-change'));
             // invoke browser change event
             el.change();
@@ -124,6 +130,7 @@
             evt = this.createEvent('keyup', {shiftKey: shiftKey, keyCode: keyCode});
             this.dispatchEvent(el[0], 'keyup', evt);
 
+            // TODO: Break out AngularJS
             if (!scope.$$phase) {
                 scope.$apply();
             }
@@ -322,17 +329,15 @@
         return s;
     }
 
-    angular.module("runner").run(function () {
-        runner.elementMethods.push({
-            name: 'sendKeys',
-            method: function (target) {
-                return function (str, strToCompare) {
-                    var s = sendKeys.apply(null, arguments);
-                    runner.createElementStep(s, target);
-                    return s;
-                };
-            }});
-    });
+    runner.elementMethods.push({
+        name: 'sendKeys',
+        method: function (target) {
+            return function (str, strToCompare) {
+                var s = sendKeys.apply(null, arguments);
+                runner.createElementStep(s, target);
+                return s;
+            };
+        }});
 
 }());
 
@@ -348,7 +353,7 @@
 
 (function ($) {
     'use strict';
-    var $fn = jQuery.fn;
+    var $fn = jQuery.fn, input;
     $fn.getCursorPosition = function () {
         if (this.length === 0) {
             return -1;
