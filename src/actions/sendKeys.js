@@ -1,16 +1,24 @@
+/**
+ * Simulates keyboard actions on DOM elements
+ */
 /*global jQuery*/
 (function () {
     'use strict';
     function Keyboard(el, lock) {
         this.el = el;
         this.scope = el.scope();
-        this.selStart = el.getSelectionStart() || el.val().length - 1;
-        this.selEnd = el.getSelectionEnd() || el.val().length - 1;
-        el.setSelection(this.selStart, this.selEnd);
-        this.cursorPosition = this.selStart;
 
         var editableTypes = "text password number email url search tel";
         this.isEditable = (/textarea|select/i.test(el[0].nodeName) || editableTypes.indexOf(el[0].type.toLowerCase()) > -1);
+
+        if (this.isEditable) {
+            this.selStart = el.getSelectionStart() || 0;
+            this.selEnd = el.getSelectionEnd() || el.val().length;
+            el.setSelection(this.selStart, this.selEnd);
+            this.cursorPosition = this.selEnd;
+        }
+
+        this.capsLocked = false;
 
         if (lock) {
             this.lock();
@@ -41,7 +49,7 @@
 
     var proto = Keyboard.prototype;
 
-    proto.isShiftKey = function (letter) {
+    proto.checkShiftKey = function (letter) {
         var alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()_+{}|:\"<>?~;",
             testLetter = letter.toUpperCase();
         if (testLetter === letter) {
@@ -67,16 +75,18 @@
     };
 
     proto.type = function (phrase, options) {
+        var str, i, len;
         if (this.selStart !== this.selEnd) {
-            var str = this.el.val();
+            str = this.el.val();
             str = str.substr(0, this.selStart) + str.substr(this.selEnd);
             this.el.val(str);
             this.selStart = this.selEnd = null;
         }
         phrase = phrase || '';
-        var i = 0, len = phrase.length;
+        i = 0;
+        len = phrase.length;
         while (i < len) {
-            this.punch(phrase.charAt(i), options, true);
+            this.punch(phrase.charAt(i), options);
             i += 1;
         }
         return this;
@@ -90,7 +100,7 @@
         options = options || {};
         if (this.attr('disabled') !== 'disabled') {
             keyCode = this.key[lchar];
-            shiftKey = this.isShiftKey(char);
+            shiftKey = this.checkShiftKey(char);
             evt = this.createEvent('keydown', {shiftKey: shiftKey, keyCode: keyCode});
             this.dispatchEvent(el[0], 'keydown', evt);
             // if item is editable and enabled then add to it
@@ -118,78 +128,108 @@
                 scope.$apply();
             }
         }
+        return this;
     };
 
     proto.attr = function (attr) {
         return this.el.attr(attr) || this.el.attr('data-' + attr);
     };
 
-    // TODO: navigate text area
-    proto.enter = function () {
-        this.punch('enter');
+    proto.enter = function (options) {
+        this.punch('enter', options);
         return this;
     };
 
-    // TODO: Implement functionality for non text items
-    proto.left = function () {
+    proto.left = function (options) {
         var el = this.el;
         if (this.isEditable) {
             this.cursorPosition -= 1;
+        } else {
+            this.punch('left', options);
         }
         return this;
     };
 
-    // TODO: Implement functionality
-    proto.up = function () {
-
+    proto.up = function (options) {
+        this.punch('up', options);
+        return this;
     };
 
-    proto.right = function () {
+    proto.right = function (options) {
         var el = this.el;
         if (this.isEditable) {
             this.cursorPosition += 1;
+        } else {
+            this.punch('right', options);
         }
         return this;
     };
 
-    // TODO: Implement functionality
-    proto.down = function () {
+    proto.down = function (options) {
+        this.punch('down', options);
+        return this;
     };
 
-    proto.home = function () {
+    proto.home = function (options) {
         var el = this.el;
         if (this.isEditable) {
             this.cursorPosition = 0;
+        } else {
+            this.punch('home', options);
         }
         return this;
     };
-    proto.end = function () {
+    proto.end = function (options) {
         var el = this.el;
         if (this.isEditable) {
             this.cursorPosition = el.val().length;
+        } else {
+            this.punch('home', options);
         }
         return this;
     };
 
-    // TODO: Implement functionality
-    proto.pageUp = function () {
+    proto.pageUp = function (options) {
+        this.punch('pageup', options);
+        return this;
     };
 
-    // TODO: Implement functionality
-    proto.pageDown = function () {
+    proto.pageDown = function (options) {
+        this.punch('pagedown', options);
+        return this;
     };
 
     // TODO: Fix delete, backspace to invoke save key events
-    proto.delete = function () {
+    proto.del = function (options) {
         if (this.isEditable) {
             var val = this.el.val(),
                 curPos = this.cursorPosition;
             this.el.val(val.substr(0, curPos) + val.substr(curPos + 1));
+        } else {
+            this.punch('delete', options);
         }
         return this;
     };
 
-    proto.tab = function () {
+    proto.tab = function (options) {
+        this.punch('tab', options);
+        return this;
+    };
+
+    proto.backspace = function (options) {
+        if (this.isEditable) {
+            var val = this.el.val(),
+                curPos = this.cursorPosition;
+            this.el.val(val.substr(0, curPos - 1) + val.substr(curPos));
+            this.cursorPosition = curPos - 1;
+        } else {
+            this.punch('backspace', options);
+        }
+        return this;
+    };
+
+    proto.capsLock = function () {
+        this.capsLocked = !this.capsLocked;
     };
 
     proto.lock = function () {
@@ -213,16 +253,6 @@
     proto.killEvent = function (evt) {
         evt.preventDefault();
         evt.stopImmediatePropagation();
-    };
-
-    proto.backspace = function () {
-        if (this.isEditable) {
-            var val = this.el.val(),
-                curPos = this.cursorPosition;
-            this.el.val(val.substr(0, curPos - 1) + val.substr(curPos));
-            this.cursorPosition = curPos - 1;
-        }
-        return this;
     };
 
     proto.dispatchEvent = function (el, type, evt) {
@@ -276,10 +306,10 @@
                 Keyboard.exec(s.element, str);
             },
             validate: function () {
-                if(assertValue) {
-                    var attr = 'ng-model';
-                    var attrVal = s.element.attr(attr) || s.element.attr('data-' + attr);
-                    if(attrVal) {
+                if (assertValue) {
+                    var attr = 'ng-model',
+                        attrVal = s.element.attr(attr) || s.element.attr('data-' + attr);
+                    if (attrVal) {
                         s.value = s.element.scope().$eval(attrVal);
                     } else {
                         s.value = s.element.val();
@@ -292,15 +322,17 @@
         return s;
     }
 
-    runner.elementMethods.push({
-        name: 'sendKeys',
-        method: function (target) {
-            return function (str, strToCompare) {
-                var s = sendKeys.apply(s, arguments);
-                runner.createElementStep(s, target);
-                return s;
-            }
-        }});
+    angular.module("runner").run(function () {
+        runner.elementMethods.push({
+            name: 'sendKeys',
+            method: function (target) {
+                return function (str, strToCompare) {
+                    var s = sendKeys.apply(null, arguments);
+                    runner.createElementStep(s, target);
+                    return s;
+                };
+            }});
+    });
 
 }());
 
@@ -315,61 +347,81 @@
  */
 
 (function ($) {
-    $.fn.getCursorPosition = function () {
-        if (this.lengh == 0) return -1;
+    'use strict';
+    var $fn = jQuery.fn;
+    $fn.getCursorPosition = function () {
+        if (this.length === 0) {
+            return -1;
+        }
         return $(this).getSelectionStart();
     };
 
-    $.fn.setCursorPosition = function (position) {
-        if (this.lengh == 0) return this;
+    $fn.setCursorPosition = function (position) {
+        if (this.length === 0) {
+            return this;
+        }
         return $(this).setSelection(position, position);
     };
 
-    $.fn.getSelection = function () {
-        if (this.lengh == 0) return -1;
-        var s = $(this).getSelectionStart();
-        var e = $(this).getSelectionEnd();
+    $fn.getSelection = function () {
+        if (this.length === 0) {
+            return -1;
+        }
+        var s = $(this).getSelectionStart(),
+            e = $(this).getSelectionEnd();
         return this[0].value.substring(s, e);
     };
 
-    $.fn.getSelectionStart = function () {
-        if (this.lengh == 0) return -1;
+    $fn.getSelectionStart = function () {
+        if (this.length === 0) {
+            return -1;
+        }
         input = this[0];
 
-        var pos = input.value.length;
+        var pos = input.value.length,
+            r;
 
         if (input.createTextRange) {
-            var r = document.selection.createRange().duplicate();
+            r = document.selection.createRange().duplicate();
             r.moveEnd('character', input.value.length);
-            if (r.text == '')
+            if (r.text === '') {
                 pos = input.value.length;
+            }
             pos = input.value.lastIndexOf(r.text);
-        } else if (typeof(input.selectionStart) != "undefined")
+        } else if (input.selectionStart !== undefined) {
             pos = input.selectionStart;
+        }
 
         return pos;
     };
 
-    $.fn.getSelectionEnd = function () {
-        if (this.lengh == 0) return -1;
+    $fn.getSelectionEnd = function () {
+        if (this.length === 0) {
+            return -1;
+        }
         input = this[0];
 
-        var pos = input.value.length;
+        var pos = input.value.length,
+            r;
 
         if (input.createTextRange) {
-            var r = document.selection.createRange().duplicate();
+            r = document.selection.createRange().duplicate();
             r.moveStart('character', -input.value.length);
-            if (r.text == '')
+            if (r.text === '') {
                 pos = input.value.length;
+            }
             pos = input.value.lastIndexOf(r.text);
-        } else if (typeof(input.selectionEnd) != "undefined")
+        } else if (input.selectionEnd !== undefined) {
             pos = input.selectionEnd;
+        }
 
         return pos;
     };
 
-    $.fn.setSelection = function (selectionStart, selectionEnd) {
-        if (this.lengh == 0) return this;
+    $fn.setSelection = function (selectionStart, selectionEnd) {
+        if (this.length === 0) {
+            return this;
+        }
         input = this[0];
 
         if (input.createTextRange) {
