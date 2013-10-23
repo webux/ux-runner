@@ -1,7 +1,7 @@
 {
     "name": "uxRunner",
     "version": "0.1.0",
-    "filename": "ux-runnerGruntfile.js",
+    "filename": "runner",
     "packageName": "ux",
     "dependencies": {},
     "devDependencies": {

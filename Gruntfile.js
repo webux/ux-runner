@@ -17,31 +17,34 @@ module.exports = function (grunt) {
             }
         },
         uglify: {
-//            build: {
-//                options: {
-//                    mangle: false,
-//                    compress: false,
-//                    preserveComments: 'some',
-//                    beautify: true,
-//                    banner: '<%= banner %>',
-//                    wrap: '<%= pkg.packageName %>'
-//                },
-//                files: {
-//                    'build/<%= pkg.filename %>.js': [
-//                        'src/*.js'
-//                    ]
-//                }
-//            },
-//            build_min: {
-//                options: {
-//                    report: 'gzip',
-//                    wrap: '<%= pkg.packageName %>',
-//                    banner: '<%= banner %>'
-//                },
-//                files: {
-//                    'build/<%= pkg.filename %>.min.js': ['build/<%= pkg.filename %>.js']
-//                }
-//            },
+            build: {
+                options: {
+                    mangle: false,
+                    compress: false,
+                    preserveComments: 'some',
+                    beautify: true,
+                    banner: '<%= banner %>',
+                    wrap: '<%= pkg.packageName %>'
+                },
+                files: {
+                    'build/ux-<%= pkg.filename %>.js': [
+                        'src/ux-runner.js',
+                        'src/renderer.js',
+                        'src/actions/*.js',
+                        'src/expects/*.js'
+                    ]
+                }
+            },
+            build_min: {
+                options: {
+                    report: 'gzip',
+                    wrap: '<%= pkg.packageName %>',
+                    banner: '<%= banner %>'
+                },
+                files: {
+                    'build/ux-<%= pkg.filename %>.min.js': ['build/ux-<%= pkg.filename %>.js']
+                }
+            },
             build_ng: {
                 options: {
                     mangle: false,
@@ -53,7 +56,11 @@ module.exports = function (grunt) {
                 },
                 files: {
                     'build/angular-<%= pkg.filename %>.js': [
-                        'src/*.js'
+                        'src/ux-runner.js',
+                        'src/renderer.js',
+                        'src/actions/*.js',
+                        'src/expects/*.js',
+                        'src/frameworks/angular.js'
                     ]
                 }
             },

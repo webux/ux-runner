@@ -33,7 +33,7 @@
         });
     }
 
-    runner.addScenario('scenario1', scenarios);
-    runner.addScenario('scenario2', scenarios); // add it twice so we can test that tings are running.
+    ux.runner.addScenario('scenario1', scenarios);
+    ux.runner.addScenario('scenario2', scenarios); // add it twice so we can test that tings are running.
 
 }());

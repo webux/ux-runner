@@ -5,14 +5,23 @@
     <link rel="stylesheet" type="text/css" href="ux-tester.css">
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.1.5/angular.min.js"></script>
-    <script src="../src/ux-runner.js"></script>
-    <script src="../src/actions/sendKeys.js"></script>
-    <script src="../src/actions/sendMouse.js"></script>
-    <script src="../src/actions/sendTap.js"></script>
-    <script src="../src/expects/toBe.js"></script>
-    <script src="../src/renderer.js"></script>
+    <!--<script src="../build/ux-runner.js"></script>-->
+    <!--<script src="../build/ux-runner.min.js"></script>-->
+    <script src="../build/angular-runner.js"></script>
+    <!--<script src="../build/angular-runner.min.js"></script>-->
     <script src="../test/e2e/scenarios.js"></script>
     <script>
+
+        ux.runner.config({
+            interval: 100,
+            defaultTimeout: 1000,
+            timeouts: {
+                short: 1000,
+                medium: 10000,
+                long: 30000,
+                forever: 60000
+            }
+        });
 
         function Root($scope) {
             $scope.running = "true";
