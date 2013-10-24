@@ -45,18 +45,19 @@ You can run a single, multiple, or all scenarios. Runner uses the console to sta
 
 **Run all scenarios.**
 
-	runner.run()
+	ux.runner.run()
 
 **Run a scenario** (notice the name matches the first example. registered scenario names are passed to run them individually)
 
-	runner.run('scenario1')
+	ux.runner.run('scenario1')
 
 **Run multiple scenarios**. You probably already guessed this one by now.
 
-	runner.run('scenario1', 'addItemsToCart', 'submitCart')
+	ux.runner.run('scenario1', 'addItemsToCart', 'submitCart')
 
 ## Using Injections ##
-Scenarios and steps have the ability to use injection both from runner and from the app you are testing. As you can see in the example below "userModel" is injected into scenario while "loginModel" is injected into step.
+Scenarios and steps have the ability to use injection both from runner and from the *app you are testing. As you can see in the example below "userModel" is injected into scenario while "loginModel" is injected into step.
+*(if you are using angular-runner.js)
 
 	scenario("Test my page", function (userModel) {
 		if (!user.username) {
@@ -65,6 +66,8 @@ Scenarios and steps have the ability to use injection both from runner and from 
 			});
 		}
 	}
+
+If you want to inject using angular. You need to use the angular-runner.js. Then it will automatically use the angular injector instead of the build in one.
 
 You can also use this to link other functions from runner. This example injects waitFor as well as options. Both of which are defined on runner. (see runner.locals for all possible injections from runner).
 
@@ -82,35 +85,31 @@ Options you will notice is the same as your configs. So the items you define in 
 We had talked before about having the need to login to an account first as a condition. But it would be annoying to have to do that every time in your scenarios, and we want them all to be able to run on their own, so we need the ability to add in some easy methods to handle repeated steps that we can add to any scenario.
 
 In this example we have created the method "selectAccount". This method defines a new step "should select an account". This step will select the account for a user if they do not have one selected yet.
-
-	angular.module("runner").run(function () {
-        runner.locals.selectAccount = function() {
-				// if any injection isn't working. Here is how you cheat to get methods you need. Remember, they are all on locals.
-                var step = runner.locals.step, find = runner.locals.find, options = runner.locals.options;
-                step("should select an account", function (user) {
-                    if (!user.accounts.getSelectedAccount()) {
-                        find(".accountSelectGridRow:eq(0)").click();
-                        find(".blue", options.timeouts.long, "wait for home page button");
-                    }
-                });
-            };
-    });
+	
+    ux.runner.locals.selectAccount = function() {
+		// if any injection isn't working. Here is how you cheat to get methods you need. Remember, they are all on locals.
+        var step = ux.runner.locals.step, find = ux.runner.locals.find, options = ux.runner.locals.options;
+        step("should select an account", function (user) {
+            if (!user.accounts.getSelectedAccount()) {
+                find(".accountSelectGridRow:eq(0)").click();
+                find(".blue", options.timeouts.long, "wait for home page button");
+            }
+        });
+    };
 
 So the real trick here is that it adds this method to the locals. So now just like any other methods, you can now get this one injected into your scenario. Let's show an example of "selectAccount" being injected and used.
 
-	angular.module("runner").run(function () {
-	    runner.addScenario('searchCatalog', function scenarios(scenario, step, find, options, selectAccount) {
-	        scenario("Select button", function () {
-	
-	            selectAccount(); // here we use the custom function. Since it creates a step it needs executed inside of a scenario.
-	
-	            step("select button", function () {
-	                find(".myButton").click();
-	            }, function () {
-	                return $('myButton').hasClass('selected');
-	            });
-	        });
-	    });
+    ux.runner.addScenario('searchCatalog', function scenarios(scenario, step, find, options, selectAccount) {
+        scenario("Select button", function () {
+
+            selectAccount(); // here we use the custom function. Since it creates a step it needs executed inside of a scenario.
+
+            step("select button", function () {
+                find(".myButton").click();
+            }, function () {
+                return $('myButton').hasClass('selected');
+            });
+        });
     });
 
 ## API ##
