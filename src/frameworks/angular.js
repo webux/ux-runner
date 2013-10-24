@@ -8,10 +8,12 @@
         angular.module('ux', []);
     }
 
-    angular.module("runner").run(function () {
+    angular.module("ux").run(function () {
         runner.getInjector = function () {
             return angular.element(document).injector();
         };
+    }).factory('runner', function () {
+        return ux.runner;
     });
 
 }());
