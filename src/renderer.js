@@ -43,20 +43,31 @@ function renderer() {
         }
     }
 
+    function isChainStep(step) {
+        return !!(step.parent && step.parent.element);
+    }
+
     function stepStart(event, step) {
         updateHighlight(step.element);
         if (!$('#' + step.id).length) {
-            content.append('<div id="' + step.id + '" class="runner-pending runner-' + step.type + '" style="text-indent: ' + (step.depth * 20) + 'px;">' + step.label + '</div>');
+            var indent = isChainStep(step.parent) ? 20 : step.depth * 20;
+            content.append('<div id="' + step.id + '" class="runner-pending runner-' + step.type + (isChainStep(step) ? '-chain' : '') + '" style="text-indent: ' + indent + 'px;">' + step.label + '</div>');
         }
     }
 
     function stepEnd(event, step) {
         $('#' + step.id).addClass('runner-' + (step.pass ? 'pass' : 'fail')).text(step.label);
         updateHighlight(step.element);
+        scrollToBottom();
+    }
+
+    function scrollToBottom() {
+        overlay.scrollTop(content.height());
     }
 
     function done() {
         if (confirm("Tests are complete. Would you like to close them?")) {
+            scrollToBottom();
             runner.stop();
         }
     }

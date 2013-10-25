@@ -49,10 +49,10 @@ var module = {},
     activeStep,
     intv,
     scenarios = [],
-    debug = true,
+    debug = false,
 //TODO: make jqMethods and jqAccessors public so that they can be added to for new jquery methods. jqMethods resturn the element, jqAccessors return the value.
     jqMethods = ['focus', 'blur', 'click', 'mousedown', 'mouseover', 'mouseup', 'select', 'touchstart', 'touchend', 'trigger'],
-    jqAccessors = ['val', 'text', 'html'];
+    jqAccessors = ['val', 'text', 'html', 'scrollTop'];
 
 if (!Math.uuid) {
     var c = 0;
@@ -216,13 +216,36 @@ function step(exports) {
         }
     }
 
+    function custom(label, method, validate, timeout) {
+        var s = {
+            type: types.STEP,
+            parentType: types.STEP,
+            repeat: 1,
+            label: label || 'CUSTOM',
+            value: undefined,
+            method: function() {
+                s.element = exports.element;
+                s.value = method && invoke(method, s, runner.locals);
+                return s;
+            },
+            validate: function() {
+                if (typeof validate === 'boolean') {
+                    return validate;
+                }
+                return validate ? invoke(validate, s, runner.locals) : true;
+            },
+            timeout: timeout || options.interval
+        };
+        createElementStep(s);
+        return s;
+    }
+
     exports.id = Math.uuid();
     exports.state = states.DORMANT;
     exports.type = exports.type || types.STEP;
     exports.label = exports.label || "no label";
     exports.timeout = exports.timeout || options.defaultTimeout;
-    exports.method = exports.method || function () {
-    };
+    exports.method = exports.method || function () {};
     exports.validate = exports.validate || function () {
         return true;
     };
@@ -231,11 +254,10 @@ function step(exports) {
     exports.add = add;
     exports.run = run;
     exports.next = next;
+    exports.custom = custom; // use to create a custom chain method.
     exports.depth = exports.parent.depth + 1;
-    exports.onStart = exports.onStart || function () {
-    };
-    exports.onComplete = exports.onComplete || function () {
-    };
+    exports.onStart = exports.onStart || function () {};
+    exports.onComplete = exports.onComplete || function () {};
     return exports;
 }
 
@@ -379,19 +401,20 @@ function addElementMethods(stepData, index, list, target) {
 }
 
 function find(selector, timeout, label) {
+    var selectorLabel = (typeof selector === "function" ? "(custom method)" : selector);
     var s = {
         type: types.STEP,
         parentType: types.IT,
-        repeat: 10000,
-        label: label || 'finding: \"' + selector + '\"',
+        repeat: 1e4,
+        label: label || 'finding: "' + selectorLabel + '"',
         value: undefined,
-        method: function () {
-            s.value = s.element = $(selector);
+        method: function() {
+            s.value = s.element = $(typeof selector === "function" ? selector() : selector);
             return s;
         },
-        validate: function () {
+        validate: function() {
             var result = !!s.value.length;
-            s.label = (result ? 'found(' + s.element.length + '):' : 'could not find') + ' \"' + selector + '\"';
+            s.label = (result ? "found(" + s.element.length + "):" : "could not find") + ' "' + selectorLabel + '"';
             return result;
         },
         timeout: timeout
@@ -475,6 +498,16 @@ function run(scenarioName) {
     activeStep.run();
 }
 
+function repeat(method, times) {
+    var i = 0, args = exports.util.array.toArray(arguments);
+    args.shift();
+    args.shift();
+    while (i < times) {
+        method.apply({}, [i].concat(args));
+        i += 1;
+    }
+}
+
 runner = {
     getInjector: null,
     config: applyConfig,
@@ -489,7 +522,9 @@ runner = {
     args: [],
     elementMethods: [],
     scenarios: {}, // external stub for constants.
-    locals: locals
+    locals: locals,
+    each: each,
+    repeat: repeat
 };
 locals.scenario = describe;
 locals.step = it;

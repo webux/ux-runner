@@ -127,7 +127,8 @@ proto.punch = function (char, options) {
         // invoke keyup event
         evt = this.createEvent('keyup', {shiftKey: shiftKey, keyCode: keyCode});
         this.dispatchEvent(el[0], 'keyup', evt);
-
+        // update angular with the value.
+        el.data('$ngModelController').$setViewValue(el.val());
         // TODO: Break out AngularJS
         if (!scope.$$phase) {
             scope.$apply();
@@ -308,9 +309,15 @@ function sendKeys(str, assertValue) {
     var s = {
         label: "sendKeys " + str,
         method: function () {
-            Keyboard.exec(s.element, str);
+            if (s.element.length) {
+                Keyboard.exec(s.element, str);
+            }
         },
         validate: function () {
+            if (!s.element.length) {
+                s.label = "sendKeys failed because there is no element selected.";
+                return false;
+            }
             if (assertValue) {
                 var attr = 'ng-model',
                     attrVal = s.element.attr(attr) || s.element.attr('data-' + attr);

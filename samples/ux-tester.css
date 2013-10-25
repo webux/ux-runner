@@ -20,11 +20,11 @@
     width: auto;
     padding: 10px;
     background-color: rgba(0, 0, 0, 0.75);
+    padding-bottom: 40px;
 }
 
 .runner-title {
     padding: 10px;
-    margin-top: 40px;
     color: #FFFFFF;
     background-color: rgba(0, 0, 0, 0.75);
 }
@@ -45,6 +45,13 @@
 }
 
 .runner-step {
+    clear: both;
+    font-size: 12px;
+    font-weight: normal;
+}
+
+.runner-step-chain {
+    display: inline-block;
     font-size: 12px;
     font-weight: normal;
 }

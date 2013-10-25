@@ -35,6 +35,7 @@ module.exports = function (grunt) {
                         'src/renderer.js',
                         'src/actions/*.js',
                         'src/expects/*.js',
+                        'src/lib/*.js'
                     ]
                 }
             },
@@ -62,6 +63,7 @@ module.exports = function (grunt) {
                         'src/renderer.js',
                         'src/actions/*.js',
                         'src/expects/*.js',
+                        'src/lib/*.js',
                         'src/frameworks/angular.js',
                     ]
                 }
