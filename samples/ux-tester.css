@@ -10,6 +10,7 @@
 }
 
 .runner-highlighter {
+    z-index: 10001;
     border: 4px solid #FF0000;
     border-radius: 10px;
     position: absolute;

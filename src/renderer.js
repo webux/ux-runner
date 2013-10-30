@@ -29,8 +29,8 @@ function renderer() {
         });
 
         highlighter = $('<div class="runner-highlighter"></div>');
-        overlay.append(highlighter);
         $('body').append(overlay);
+        $('body').append(highlighter);
         addBinds();
     }
 
@@ -107,6 +107,7 @@ function renderer() {
         if (overlay) {
             ux.runner.pause();
             overlay.remove();
+            highlighter.remove();
             content = null;
             overlay = null;
             highlighter = null;

@@ -238,6 +238,7 @@ function step(exports) {
     }
 
     function custom(label, method, validate, timeout) {
+        method = method || function () {};
         var s = {
             type: types.STEP,
             parentType: types.STEP,
@@ -377,7 +378,7 @@ function waitFor(label, fn, timeout) {
         timeout: timeout
     });
 }
-// TODO: not done yet.
+
 function waitForNgEvent(event, timeout) {
     var s = {
         type: types.STEP,
@@ -525,7 +526,7 @@ function addScenario(name, scenario) {
 }
 
 function applyConfig(config) {
-    angular.extend(options, config);
+    runner.options = angular.extend(options, config);
 }
 
 function getScenarioNames() {
@@ -637,3 +638,14 @@ locals.waitFor = waitFor;
 locals.waitForNgEvent = waitForNgEvent;
 
 exports.runner = runner;
+
+$('body').ready(function () {
+    if (runner.options && runner.options.autoStart) {
+        if (typeof runner.options.autoStart === "function") {
+            runner.options.autoStart.apply(runner, []);
+        } else {
+            // give it a little time before starting.
+            setTimeout(runner.run, 1000);
+        }
+    }
+});

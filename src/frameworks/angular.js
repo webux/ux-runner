@@ -13,6 +13,9 @@
             return angular.element(document).injector();
         };
     }).factory('runner', function () {
+        if (ux.runner.options.autoStart && typeof ux.runner.options.autoStart === "boolean") {
+            ux.runner.run();
+        }
         return ux.runner;
     });
 
