@@ -18,7 +18,9 @@ var module = {},
     events = {
         START: "runner:start",
         STEP_START: "runner:stepStart",
+        STEP_UPDATE: "runner:stepUpdate",
         STEP_END: "runner:stepEnd",
+        STEP_PAUSE: "runner:stepPause",
         DONE: 'runner:done'
     },
     options = {
@@ -50,6 +52,7 @@ var module = {},
     intv,
     scenarios = [],
     debug = false,
+    walkStep = null,
 //TODO: make jqMethods and jqAccessors public so that they can be added to for new jquery methods. jqMethods resturn the element, jqAccessors return the value.
     jqMethods = ['focus', 'blur', 'click', 'mousedown', 'mouseover', 'mouseup', 'select', 'touchstart', 'touchend', 'trigger'],
     jqAccessors = ['val', 'text', 'html', 'scrollTop'];
@@ -80,6 +83,7 @@ function dispatch(event) {
 function init() {
     injector = runner.getInjector ? runner.getInjector() : {invoke: invoke};
     runner.locals.injector = injector;
+    runner.walking = false;
 }
 
 function setup() {
@@ -110,7 +114,7 @@ function each(list, method, data) {
         len = list.length;
         while (i < len) {
             result = method(list[i], i, list, data);
-            if (result) { // if they return a result. Escape.
+            if (result !== undefined) { // if they return a result. Escape.
                 return result;
             }
             i += 1;
@@ -119,7 +123,7 @@ function each(list, method, data) {
         for (i in list) {
             if (list.hasOwnProperty(i)) {
                 result = method(list[i], i, list, data);
-                if (result) { // if they return a result. Escape.
+                if (result !== undefined) { // if they return a result. Escape.
                     return result;
                 }
             }
@@ -162,6 +166,9 @@ function step(exports) {
     }
 
     function next() {
+        if (runner.walking) {
+            dispatch(events.STEP_UPDATE, exports);
+        }
         childStep = steps[index];
         if (childStep) {
             index += 1;
@@ -193,27 +200,41 @@ function step(exports) {
     }
 
     function exec(method) {
+        return injector.invoke(method, exports, locals);
+    }
+
+    function validate(method) {
         if (method) {
-            return !!injector.invoke(method, exports, locals);
+            return !!exec(method);
         }
         return true;
     }
 
     function finalize() {
-//TODO: need to break out injector.
         exec(exports.method);
-        var now = Date.now();
-        exports.pass = exec(exports.validate);
+        exports.pass = validate(exports.validate);
         exports.count += 1;
-        if (exports.repeat > exports.count && !exports.pass && exports.timeout + exports.startTime > now) {
+        exports.timedOut = !hasTimeLeft(exports);
+        if (exports.repeat > exports.count && !exports.pass && !exports.timedOut) {
             log("%s%s: checking %s", charPack("\t", exports.depth), exports.type, exports.label);
             clearTimeout(intv);
             intv = setTimeout(finalize, options.interval);
         } else {
             log("%s%s: %s, value:\"%s\" (%s)", charPack("\t", exports.depth), exports.type, exports.label, exports.value, exports.pass ? "pass" : "fail");
-            clearTimeout(intv);
-            intv = setTimeout(next, options.interval);
+            walkStep = exports;
+            if (runner.pauseOnFail && !exports.pass) {
+                // auto pause when debugging.
+                pause();
+            }
+            if (runner.walking) {
+                dispatch(events.STEP_PAUSE, exports);
+                return;
+            } else {
+                clearTimeout(intv);
+                intv = setTimeout(next, options.interval);
+            }
         }
+        dispatch(events.STEP_UPDATE, exports);
     }
 
     function custom(label, method, validate, timeout) {
@@ -225,19 +246,48 @@ function step(exports) {
             value: undefined,
             method: function() {
                 s.element = exports.element;
-                s.value = method && invoke(method, s, runner.locals);
+                s.value = s.exec(method);
                 return s;
             },
             validate: function() {
                 if (typeof validate === 'boolean') {
                     return validate;
                 }
-                return validate ? invoke(validate, s, runner.locals) : true;
+                return validate ? s.exec(validate) : true;
             },
             timeout: timeout || options.interval
         };
-        createElementStep(s);
+        createElementStep(s, s.parent);
         return s;
+    }
+
+    function until(label, validate, timeout) {
+        var s = {
+            type: types.STEP,
+            parentType: types.STEP,
+            repeat: 1,
+            label: label || 'UNTIL',
+            value: undefined,
+            method: function() {
+                s.element = exports.element;
+                return s;
+            },
+            validate: function() {
+                var result = validate ? s.exec(validate) : true;
+                if (hasTimeLeft(s) && !result) {
+                    s.repeat += 1;
+                }
+                return result;
+            },
+            timeout: timeout || options.interval
+        };
+        createElementStep(s, s.parent);
+        return s;
+    }
+
+    function done() {
+        exports.isDone = true;
+        exports.repeat = 0; // force exit.
     }
 
     exports.id = Math.uuid();
@@ -255,9 +305,10 @@ function step(exports) {
     exports.run = run;
     exports.next = next;
     exports.custom = custom; // use to create a custom chain method.
+    exports.until = until;
+    exports.done = done;
+    exports.exec = exec;
     exports.depth = exports.parent.depth + 1;
-    exports.onStart = exports.onStart || function () {};
-    exports.onComplete = exports.onComplete || function () {};
     return exports;
 }
 
@@ -300,6 +351,21 @@ function it(label, method, validate, timeout) {
     });
 }
 
+function wait(timeout) {
+    timeout = timeout || options.interval;
+    create({
+        type: types.STEP,
+        parentType: types.IT,
+        label: "wait " + timeout + "ms",
+        method: null,
+        repeat: 10000,
+        validate: function () {
+            return !hasTimeLeft(this, true);
+        },
+        timeout: timeout
+    });
+}
+
 function waitFor(label, fn, timeout) {
     create({
         type: types.STEP,
@@ -313,19 +379,31 @@ function waitFor(label, fn, timeout) {
 }
 // TODO: not done yet.
 function waitForNgEvent(event, timeout) {
-    create({
+    var s = {
         type: types.STEP,
         parentType: types.IT,
         label: "wait for \"" + event + "\" event.",
         repeat: 10000,
+        scope: null,
         method: function () {
-
+            if (!s.scope) {
+                s.element = s.parent.element || $('body');
+                s.scope = s.element.scope();
+                s.scope.$on(event, function () {
+                    s.ngEvent = true;
+                });
+            }
         },
         validate: function () {
-
+            return !!s.ngEvent;
         },
-        timeout: timeout
-    });
+        timeout: timeout || options.timeouts.short
+    };
+    create(s);
+}
+
+function hasTimeLeft(s, stepBefore) {
+    return s.timeout + s.startTime - (stepBefore ? options.interval : 0) > Date.now();
 }
 
 function chainMethodPreExec(step, el, name, args) {
@@ -406,15 +484,15 @@ function find(selector, timeout, label) {
         type: types.STEP,
         parentType: types.IT,
         repeat: 1e4,
-        label: label || 'finding: "' + selectorLabel + '"',
+        label: label || 'find: "' + selectorLabel + '"',
         value: undefined,
         method: function() {
-            s.value = s.element = $(typeof selector === "function" ? selector() : selector);
+            s.value = s.element = $(typeof selector === "function" ? s.exec(selector) : selector);
             return s;
         },
         validate: function() {
             var result = !!s.value.length;
-            s.label = (result ? "found(" + s.element.length + "):" : "could not find") + ' "' + selectorLabel + '"';
+            s.label = (result ? s.label : "could not find") + ' "' + selectorLabel + '"';
             return result;
         },
         timeout: timeout
@@ -498,6 +576,24 @@ function run(scenarioName) {
     activeStep.run();
 }
 
+function walk(scenarioName) {
+    run.apply(runner, arguments);
+    pause();
+}
+
+function forceStep() {
+    walkStep.next();
+}
+
+function pause() {
+    runner.walking = true;
+}
+
+function resume() {
+    runner.walking = false;
+    forceStep();
+}
+
 function repeat(method, times) {
     var i = 0, args = exports.util.array.toArray(arguments);
     args.shift();
@@ -512,6 +608,12 @@ runner = {
     getInjector: null,
     config: applyConfig,
     run: run,
+    walk: walk,
+    walking: false,
+    pauseOnFail: true,
+    next: forceStep,
+    pause: pause,
+    resume: resume,
     addScenario: addScenario,
     getScenarioNames: getScenarioNames,
     types: types,
@@ -530,6 +632,7 @@ locals.scenario = describe;
 locals.step = it;
 locals.find = find;
 locals.options = options;
+locals.wait = wait;
 locals.waitFor = waitFor;
 locals.waitForNgEvent = waitForNgEvent;
 

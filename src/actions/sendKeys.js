@@ -7,8 +7,9 @@ function Keyboard(el, lock) {
     // TODO: Break out AngularJS
     this.scope = el.scope();
 
+
     var editableTypes = "text password number email url search tel";
-    this.isEditable = (/textarea|select/i.test(el[0].nodeName) || editableTypes.indexOf(el[0].type.toLowerCase()) > -1);
+    this.isEditable = (/textarea|select/i.test(el[0].nodeName) || (el[0].type && editableTypes.indexOf(el[0].type.toLowerCase()) > -1));
 
     if (this.isEditable) {
         this.selStart = el.getSelectionStart() || 0;
@@ -26,11 +27,12 @@ function Keyboard(el, lock) {
 
 /**
  * Executes a series of actions on Keyboard
- * @param el jQuery
- * @param actions String
+ * @param {jQuery} el
+ * @param {String} actions
+ * @param {Object=} options
  * @example "This is a test" left left left delete -> This is a tst
  */
-Keyboard.exec = function (el/*:jQuery*/, actions/*:String*/) {
+Keyboard.exec = function (el/*:jQuery*/, actions/*:String*/, options/*:Object*/) {
     var kbd = new Keyboard(el),
         acl = actions.match(/"[^"]+"|\w+/gim),
         action, val, i = 0, len = acl.length;
@@ -39,6 +41,10 @@ Keyboard.exec = function (el/*:jQuery*/, actions/*:String*/) {
     while (i < len) {
         val = acl[i];
         action = val.match(/[^"]+/gim)[0];
+        // some reserved words have been replaced.
+        if (action === "delete") {
+            action = "del";
+        }
         if (typeof kbd[action] === 'function') {
             kbd[action]();
         } else {
@@ -98,7 +104,8 @@ proto.punch = function (char, options) {
     var el = this.el,
         scope = this.scope,
         evt, keyCode, shiftKey, lchar = char.toLowerCase(), curPos, val,
-        attr = this.attr('ng-model');
+        attr = this.attr('ng-model'),
+        ngModel;
     options = options || {};
     if (this.attr('disabled') !== 'disabled') {
         keyCode = this.key[lchar];
@@ -111,27 +118,26 @@ proto.punch = function (char, options) {
             curPos = this.cursorPosition;
             val = el.val();
             val = val.substr(0, curPos) + char + val.substr(curPos);
-            if (attr) {
+            if (attr && scope) { // scope can be null.
                 // TODO: Break out AngularJS
                 scope.$eval(attr + ' = "' + val + '"');
             }
             el.val(val);
             this.cursorPosition += 1;
         }
-        // invoke angular change event
-        // TODO: Break out AngularJS
-        scope.$eval(this.attr('ng-change'));
-        // invoke browser change event
-        el.change();
 
         // invoke keyup event
         evt = this.createEvent('keyup', {shiftKey: shiftKey, keyCode: keyCode});
         this.dispatchEvent(el[0], 'keyup', evt);
         // update angular with the value.
-        el.data('$ngModelController').$setViewValue(el.val());
-        // TODO: Break out AngularJS
-        if (!scope.$$phase) {
-            scope.$apply();
+        if (scope) {
+            if ((ngModel = el.data('$ngModelController'))) {
+                ngModel.$setViewValue(el.val());
+            }
+            // TODO: Break out AngularJS
+            if (!scope.$$phase) {
+                scope.$apply();
+            }
         }
     }
     return this;

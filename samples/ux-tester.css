@@ -10,8 +10,13 @@
 }
 
 .runner-highlighter {
-    outline: 1px solid #FF0000;
+    border: 4px solid #FF0000;
+    border-radius: 10px;
     position: absolute;
+}
+
+.runner-highlighter-empty {
+    display: none;
 }
 
 .runner-content {
@@ -23,7 +28,7 @@
     padding-bottom: 40px;
 }
 
-.runner-title {
+.runner-overlay .runner-title {
     padding: 10px;
     color: #FFFFFF;
     background-color: rgba(0, 0, 0, 0.75);
@@ -41,11 +46,10 @@
 
 .runner-it {
     font-size: 14px;
-    font-weight: normal;
+    font-weight: bold;
 }
 
 .runner-step {
-    clear: both;
     font-size: 12px;
     font-weight: normal;
 }
@@ -56,14 +60,41 @@
     font-weight: normal;
 }
 
-.runner-pending {
+.runner-overlay .runner-pending {
     color: #3498db;
 }
 
-.runner-pass {
+.runner-overlay .runner-pass {
     color: #27ae60;
 }
 
-.runner-fail {
+.runner-overlay .runner-fail {
     color: #c0392b;
+}
+
+.runner-step-count, .runner-timed-out, .runner-step-paused, .runner-close {
+    display: inline;
+    font-size: 12px;
+    background: #000000;
+    padding: 2px;
+    padding-left: 4px;
+    padding-right: 4px;
+    border-radius: 12px;
+    color: #FFFFFF;
+    min-width: 10px;
+}
+
+.runner-timed-out {
+    background-color: #FFFFFF;
+    color: #FF0000;
+}
+
+.runner-step-paused {
+    background-color: #FF6600;
+    color: #FFFFFF;
+}
+
+.runner-close {
+    background: #FF0000;
+    color: #FFFFFF;
 }
