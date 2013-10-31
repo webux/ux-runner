@@ -125,8 +125,17 @@ The methods that are already defined fall into a couple of categories. There are
 
 For the find API it is like jQuery methods except one additional few that are quite note worthy. So you have your standard, click, focus, blur, etc.
 
-- mouseClick(): this does a series of other methods to simulate a more realistic event. This will do a mousedown, focus, mouseup, click. This simulates the actual event pattern when a user clicks. It can be handy if you have directives on inputs that are listening for something particular in the sequence.
+- sendMouse(focus): this does a series of other methods to simulate a more realistic event. This will do a mousedown, focus, mouseup, click. This simulates the actual event pattern when a user clicks. It can be handy if you have directives on inputs that are listening for something particular in the sequence. "focus" if this is set it will also cause focus on the element.
 - sendKeys(): uh,... this one is a topic all of it's own. So check the heading below.
+- scroll(): this just includes some default methods such as scrollUp or scrollDown making it a little more handy.
+- sendTap(focus): this simulates touchstart and touchend events with or without focus
+- custom(label, method, validator, timeout): As long as the validator method returns false and it has not timed out this will keep executing the method, and the validation to check.
+- until(label, validator, timeout): As long as the validator returns false and it has not timed out the validator will be checked. The main difference between this and custom is that custom allows them to be separated, but until is often more handy.
+
+Noteable methods:
+
+- done(): done is provided on any step. However, it is really only useful in custom or until methods where you want a condition to keep going and then still return a false because it failed another condition. "this.done()" from inside of a step or chain method will immediately invoke that it finishes on the next interval.
+- exec(): this is really for internal use, but can be handy externally as well. This will automatically execute this method against the current step using the invoke method so that all injections for this method get included.
 
 Info events can be chained. So you can do one selection and then do multiple chained events.
 
