@@ -5,7 +5,9 @@
 function Keyboard(el, lock) {
     this.el = el;
     // TODO: Break out AngularJS
-    this.scope = el.scope();
+    if (el.scope) {
+        this.scope = el.scope();
+    }
 
 
     var editableTypes = "text password number email url search tel";

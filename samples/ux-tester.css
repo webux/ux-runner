@@ -35,27 +35,27 @@
     background-color: rgba(0, 0, 0, 0.75);
 }
 
-.runner-scenario {
+.runner-root {
     font-size: 20px;
     font-weight: bold;
 }
 
-.runner-describe {
+.runner-scenario {
     font-size: 16px;
     font-weight: bold;
 }
 
-.runner-it {
+.runner-step {
     font-size: 14px;
     font-weight: bold;
 }
 
-.runner-step {
+.runner-subStep {
     font-size: 12px;
     font-weight: normal;
 }
 
-.runner-step-chain {
+.runner-subStep-chain {
     display: inline-block;
     font-size: 12px;
     font-weight: normal;

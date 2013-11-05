@@ -2,22 +2,15 @@
 (function () {
     'use strict';
 
-    function scenarios(scenario, step, find, options, waitFor, waitForNgEvent) {
+    function scenarios(scenario, step, find, options, wait) {
         console.log("scenarios");
         //        injector.invoke(selectAccount);
 
         scenario("Datagrid Tests", function () {
             step("should test this", function () {
+                wait(500);
                 find("a:eq(0)", options.timeouts.short).sendMouse().html('I got clicked');
-//                find("a:eq(0)", options.timeouts.short).html('I got clicked');
                 find("a:eq(0)").text();
-//                waitFor("waiting for something", function() {
-//                    return true;
-//                }, timeouts.long);
-//                waitForScopeEvent('eventName', timeouts.medium, function () {
-//                    return $('.datagrid').scope();
-//                });
-//                waitForJQEvent('eventName', timeouts.medium);
             });
 
             scenario("nest description", function () {
@@ -27,7 +20,6 @@
 
                 step("should set the text", function () {
                     find("input").focus().select().sendKeys('test', 'test');
-//                    find("input").enter();
                 });
             });
 

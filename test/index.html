@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html data-ng-app="app">
+<html>
 <head>
-    <title>Servce Queue unit tests.</title>
+    <title>Runner Unit Tests.</title>
     <link rel="stylesheet" type="text/css" href="unit/lib/jasmine.css">
     <script src="unit/lib/jasmine.js"></script>
     <script src="unit/lib/json2.js"></script>
@@ -10,11 +10,10 @@
     <script src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.1.5/angular.min.js"></script>
 
     <!-- modules to test -->
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+    <script src="../build/ux-runner.js"></script>
 
     <!-- setup -->
-    <script>
-        angular.module('app', ['runner']);
-    </script>
 
     <!-- tests -->
     <script src="unit/ux-runner-spec.js"></script>

@@ -45,7 +45,7 @@ function renderer() {
     }
 
     function isChainStep(step) {
-        return step.type === ux.runner.types.STEP;//!!(step.parent && step.parent.element);
+        return step.type === ux.runner.types.SUB_STEP;//!!(step.parent && step.parent.element);
     }
 
     function writeLabel(step, paused) {
@@ -66,7 +66,7 @@ function renderer() {
             var parentIsChain = isChainStep(step.parent),
                 indent = parentIsChain ? 4 : step.depth * 20,
                 isChain = isChainStep(step);
-            if (lastStep && isChainStep(step) && step.element !== lastStep.element) {
+            if (isChain && lastStep && lastStep.depth >= step.depth) {
                 content.append('<br/>');
             }
             content.append('<div id="' + step.id + '" class="runner-pending runner-' + step.type + (isChain ? '-chain' : '') + '" style="text-indent: ' + indent + 'px;"></div>');

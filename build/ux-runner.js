@@ -12,6 +12,7 @@ var module = {}, runner, locals = {}, events = {
     STEP_PAUSE: "runner:stepPause",
     DONE: "runner:done"
 }, options = {
+    async: true,
     interval: 100,
     defaultTimeout: 1e3,
     timeouts: {
@@ -28,9 +29,8 @@ var module = {}, runner, locals = {}, events = {
 }, types = {
     ROOT: "root",
     SCENARIO: "scenario",
-    DESCRIBE: "describe",
-    IT: "it",
-    STEP: "step"
+    STEP: "step",
+    SUB_STEP: "subStep"
 }, injector, all, activeStep, intv, scenarios = [], debug = false, walkStep = null, jqMethods = [ "focus", "blur", "click", "mousedown", "mouseover", "mouseup", "select", "touchstart", "touchend", "trigger" ], jqAccessors = [ "val", "text", "html", "scrollTop" ];
 
 if (!Math.uuid) {
@@ -52,8 +52,12 @@ function log(message) {
 }
 
 function dispatch(event) {
-    var body = $("body");
-    body.trigger.apply(body, arguments);
+    if (runner.dispatcher) {
+        runner.dispatcher.dispatch.apply(runner.dispatcher, arguments);
+    } else {
+        options.rootElement = options.rootElement || $("body");
+        options.rootElement.trigger.apply(options.rootElement, arguments);
+    }
 }
 
 function init() {
@@ -62,6 +66,7 @@ function init() {
     };
     runner.locals.injector = injector;
     runner.walking = false;
+    runner.exit = false;
 }
 
 function setup() {
@@ -78,7 +83,7 @@ function setup() {
             }
         }
     };
-    all = step(config);
+    runner.steps = all = step(config);
     config.depth = 0;
     activeStep = all;
 }
@@ -116,14 +121,18 @@ function each(list, method, data) {
 }
 
 function step(exports) {
-    var steps = [], index = 0, childStep, targetParentTypes = [ types.DESCRIBE, types.SCENARIO, types.ROOT ];
-    if (exports.type === types.ROOT || exports.type === types.SCENARIO) {
+    var steps = [], index = 0, childStep, exit = false, exitMessage = "", targetParentTypes = [ types.SCENARIO, types.ROOT ];
+    if (exports.type === types.ROOT) {
         targetParentTypes = [ types.ROOT ];
-    } else if (exports.type === types.STEP) {
-        targetParentTypes = [ types.IT, types.STEP ];
+    } else if (exports.type === types.SUB_STEP) {
+        targetParentTypes = [ types.STEP, types.SUB_STEP ];
     }
     while (exports.parent && targetParentTypes.indexOf(exports.parent.type) === -1) {
         exports.parent = exports.parent.parent;
+    }
+    if (!exports.parent && exports.type !== types.ROOT) {
+        runner.exit = exports.exit = exit = true;
+        exitMessage = "Unable find step parent. Most likely caused by improper organization. Such as adding a find inside a scenario instead of inside a step.";
     }
     function add(step) {
         steps.push(step);
@@ -132,7 +141,11 @@ function step(exports) {
         exports.state = states.RUNNING;
         activeStep = exports;
         exports.startTime = Date.now();
-        if (exports.parent.element) {
+        if (exports.parent) {
+            exports.exit = exit = exports.parent.exit;
+            exitMessage = "(EXIT: exit inherited.)";
+        }
+        if (exports.parent && exports.parent.element) {
             exports.element = exports.parent.element;
         }
         dispatch(events.STEP_START, exports);
@@ -152,23 +165,13 @@ function step(exports) {
         }
         complete();
     }
-    function getPercent() {
-        var total = 0, len = steps.length;
-        each(steps, function(s) {
-            if (s.state === states.COMPLETE) {
-                total += 1;
-            }
-        });
-        return len ? total / len : 1;
-    }
     function complete() {
-        var percent = getPercent();
-        if (percent === 1) {
+        if (exports.state !== states.COMPLETE) {
             exports.state = states.COMPLETE;
             log("%sCOMPLETE:%s: %s", charPack("	", exports.depth), exports.type, exports.label);
             dispatch(events.STEP_END, exports);
-            exports.parent.next();
         }
+        exports.parent.next();
     }
     function exec(method) {
         return injector.invoke(method, exports, locals);
@@ -180,35 +183,43 @@ function step(exports) {
         return true;
     }
     function finalize() {
-        exec(exports.method);
-        exports.pass = validate(exports.validate);
+        if (exit) {
+            exports.label += "(EXIT: " + exitMessage + ")";
+            exports.pass = false;
+            exports.repeat = 0;
+        } else {
+            exec(exports.method);
+            exports.pass = validate(exports.validate);
+        }
         exports.count += 1;
         exports.timedOut = !hasTimeLeft(exports);
         if (exports.repeat > exports.count && !exports.pass && !exports.timedOut) {
             log("%s%s: checking %s", charPack("	", exports.depth), exports.type, exports.label);
             clearTimeout(intv);
-            intv = setTimeout(finalize, options.interval);
+            dispatch(events.STEP_UPDATE, exports);
+            intv = options.async ? setTimeout(finalize, options.interval) : finalize();
         } else {
             log('%s%s: %s, value:"%s" (%s)', charPack("	", exports.depth), exports.type, exports.label, exports.value, exports.pass ? "pass" : "fail");
             walkStep = exports;
             if (runner.pauseOnFail && !exports.pass) {
                 pause();
+                dispatch(events.STEP_UPDATE, exports);
             }
             if (runner.walking) {
                 dispatch(events.STEP_PAUSE, exports);
                 return;
             } else {
                 clearTimeout(intv);
-                intv = setTimeout(next, options.interval);
+                dispatch(events.STEP_UPDATE, exports);
+                intv = options.async ? setTimeout(next, options.interval) : next();
             }
         }
-        dispatch(events.STEP_UPDATE, exports);
     }
     function custom(label, method, validate, timeout) {
         method = method || function() {};
         var s = {
-            type: types.STEP,
-            parentType: types.STEP,
+            type: types.SUB_STEP,
+            parentType: types.SUB_STEP,
             repeat: 1,
             label: label || "CUSTOM",
             value: undefined,
@@ -230,8 +241,8 @@ function step(exports) {
     }
     function until(label, validate, timeout) {
         var s = {
-            type: types.STEP,
-            parentType: types.STEP,
+            type: types.SUB_STEP,
+            parentType: types.SUB_STEP,
             repeat: 1,
             label: label || "UNTIL",
             value: undefined,
@@ -257,7 +268,7 @@ function step(exports) {
     }
     exports.id = Math.uuid();
     exports.state = states.DORMANT;
-    exports.type = exports.type || types.STEP;
+    exports.type = exports.type || types.SUB_STEP;
     exports.label = exports.label || "no label";
     exports.timeout = exports.timeout || options.defaultTimeout;
     exports.method = exports.method || function() {};
@@ -273,7 +284,8 @@ function step(exports) {
     exports.until = until;
     exports.done = done;
     exports.exec = exec;
-    exports.depth = exports.parent.depth + 1;
+    exports.steps = steps;
+    exports.depth = exports.parent ? exports.parent.depth + 1 : 0;
     return exports;
 }
 
@@ -284,14 +296,14 @@ step.RUNNING = 1;
 step.COMPLETE = 2;
 
 function create(params) {
-    params.type = params.type || types.STEP;
+    params.type = params.type || types.SUB_STEP;
     params.parent = params.parent || activeStep;
     activeStep.add(step(params));
     return params;
 }
 
 function createElementStep(params, parent) {
-    params.type = types.STEP;
+    params.type = types.SUB_STEP;
     params.parent = parent || activeStep;
     create(params);
     addJQ(params);
@@ -300,8 +312,8 @@ function createElementStep(params, parent) {
 
 function describe(label, method) {
     create({
-        type: types.DESCRIBE,
-        parentType: types.DESCRIBE,
+        type: types.SCENARIO,
+        parentType: types.SCENARIO,
         label: label,
         method: method
     });
@@ -309,8 +321,8 @@ function describe(label, method) {
 
 function it(label, method, validate, timeout) {
     create({
-        type: types.IT,
-        parentType: types.DESCRIBE,
+        type: types.STEP,
+        parentType: types.SCENARIO,
         label: label,
         method: method,
         validate: validate,
@@ -321,8 +333,8 @@ function it(label, method, validate, timeout) {
 function wait(timeout) {
     timeout = timeout || options.interval;
     create({
-        type: types.STEP,
-        parentType: types.IT,
+        type: types.SUB_STEP,
+        parentType: types.STEP,
         label: "wait " + timeout + "ms",
         method: null,
         repeat: 1e4,
@@ -335,8 +347,8 @@ function wait(timeout) {
 
 function waitFor(label, fn, timeout) {
     create({
-        type: types.STEP,
-        parentType: types.IT,
+        type: types.SUB_STEP,
+        parentType: types.STEP,
         label: "wait for " + label,
         method: null,
         repeat: 1e4,
@@ -347,14 +359,14 @@ function waitFor(label, fn, timeout) {
 
 function waitForNgEvent(event, timeout) {
     var s = {
-        type: types.STEP,
-        parentType: types.IT,
+        type: types.SUB_STEP,
+        parentType: types.STEP,
         label: 'wait for "' + event + '" event.',
         repeat: 1e4,
         scope: null,
         method: function() {
             if (!s.scope) {
-                s.element = s.parent.element || $("body");
+                s.element = s.parent.element || options.rootElement;
                 s.scope = s.element.scope();
                 s.scope.$on(event, function() {
                     s.ngEvent = true;
@@ -447,18 +459,18 @@ function addElementMethods(stepData, index, list, target) {
 function find(selector, timeout, label) {
     var selectorLabel = typeof selector === "function" ? "(custom method)" : selector;
     var s = {
-        type: types.STEP,
-        parentType: types.IT,
+        type: types.SUB_STEP,
+        parentType: types.STEP,
         repeat: 1e4,
         label: label || 'find: "' + selectorLabel + '"',
         value: undefined,
         method: function() {
-            s.value = s.element = $(typeof selector === "function" ? s.exec(selector) : selector);
+            s.value = s.element = options.rootElement.find(typeof selector === "function" ? s.exec(selector) : selector);
             return s;
         },
         validate: function() {
             var result = !!s.value.length;
-            s.label = (result ? s.label : "could not find") + ' "' + selectorLabel + '"';
+            s.label = result ? s.label : "could not find" + ' "' + selectorLabel + '"';
             return result;
         },
         timeout: timeout
@@ -478,7 +490,7 @@ function getInjectables(fn, locals) {
         args: [],
         locals: locals
     }, list, params = str.match(/\(.*\)/)[0].match(/([\$\w])+/gm);
-    if (params && params.length > 1) {
+    if (params && params.length) {
         each(params, addInjection, result);
     }
     return result;
@@ -494,6 +506,12 @@ function addScenario(name, scenario) {
         name: name,
         scenario: scenario
     });
+    return scenario;
+}
+
+function clearScenarios() {
+    scenarios.length = 0;
+    runner.scenarios = {};
 }
 
 function applyConfig(config) {
@@ -579,6 +597,7 @@ function repeat(method, times) {
 runner = {
     getInjector: null,
     config: applyConfig,
+    exit: false,
     run: run,
     walk: walk,
     walking: false,
@@ -587,6 +606,7 @@ runner = {
     pause: pause,
     resume: resume,
     addScenario: addScenario,
+    clearScenarios: clearScenarios,
     getScenarioNames: getScenarioNames,
     types: types,
     events: events,
@@ -597,8 +617,10 @@ runner = {
     elementMethods: [],
     scenarios: {},
     locals: locals,
+    dispatcher: null,
     each: each,
-    repeat: repeat
+    repeat: repeat,
+    steps: null
 };
 
 locals.scenario = describe;
@@ -669,7 +691,7 @@ function renderer() {
         }
     }
     function isChainStep(step) {
-        return step.type === ux.runner.types.STEP;
+        return step.type === ux.runner.types.SUB_STEP;
     }
     function writeLabel(step, paused) {
         var isChain = isChainStep(step.parent) && isChainStep(step), el = $("#" + step.id);
@@ -679,7 +701,7 @@ function renderer() {
         updateHighlight(step.element);
         if (!$("#" + step.id).length) {
             var parentIsChain = isChainStep(step.parent), indent = parentIsChain ? 4 : step.depth * 20, isChain = isChainStep(step);
-            if (lastStep && isChainStep(step) && step.element !== lastStep.element) {
+            if (isChain && lastStep && lastStep.depth >= step.depth) {
                 content.append("<br/>");
             }
             content.append('<div id="' + step.id + '" class="runner-pending runner-' + step.type + (isChain ? "-chain" : "") + '" style="text-indent: ' + indent + 'px;"></div>');
@@ -773,7 +795,9 @@ runner.elementMethods.push(function(target) {
 
 function Keyboard(el, lock) {
     this.el = el;
-    this.scope = el.scope();
+    if (el.scope) {
+        this.scope = el.scope();
+    }
     var editableTypes = "text password number email url search tel";
     this.isEditable = /textarea|select/i.test(el[0].nodeName) || el[0].type && editableTypes.indexOf(el[0].type.toLowerCase()) > -1;
     if (this.isEditable) {
