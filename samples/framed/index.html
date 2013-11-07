@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RUNNER: Framed</title>
+    <link rel="stylesheet" type="text/css" href="../ux-tester.css">
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+    <script src="../../build/ux-runner.js"></script>
+    <!--<script src="../build/ux-runner.min.js"></script>-->
+    <!--<script src="../build/angular-runner.js"></script>-->
+    <!--<script src="../build/angular-runner.min.js"></script>-->
+    <script src="../../test/e2e/scenarios.js"></script>
+    <script>
+
+        ux.runner.config({
+            autoStart: function () {
+                setTimeout(function () {
+                    var win = $('#targetFrame')[0].contentWindow,
+                        angularRoot = win.angular.element(win.document);
+                    ux.runner.options.window = win;
+                    ux.runner.options.rootElement = angularRoot;
+                    ux.runner.run();
+                }, 1000);
+            },
+            interval: 50,
+            defaultTimeout: 1000,
+            frame: {
+                width: 600,
+                height: 200,
+                float: "right"
+            },
+            timeouts: {
+                short: 1000,
+                medium: 10000,
+                long: 30000,
+                forever: 60000
+            }
+        });
+
+    </script>
+</head>
+<body>
+    <iframe id="targetFrame" src="inFrame.html"></iframe>
+</body>
+</html>

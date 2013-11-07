@@ -1,42 +1,9 @@
 <!DOCTYPE html>
-<html ng-app="app">
+<html>
 <head>
-    <title>Tester</title>
-    <link rel="stylesheet" type="text/css" href="ux-tester.css">
-    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.1.5/angular.min.js"></script>
-    <script src="../build/ux-runner.js"></script>
-    <!--<script src="../build/ux-runner.min.js"></script>-->
-    <!--<script src="../build/angular-runner.js"></script>-->
-    <!--<script src="../build/angular-runner.min.js"></script>-->
-    <script src="../test/e2e/scenarios.js"></script>
-    <script>
-
-        ux.runner.config({
-            autoStart: true,
-            interval: 50,
-            defaultTimeout: 1000,
-            timeouts: {
-                short: 1000,
-                medium: 10000,
-                long: 30000,
-                forever: 60000
-            }
-        });
-
-        function Root($scope) {
-            $scope.running = "true";
-        }
-
-        angular.module('app', ['ng']).run();
-
-    </script>
+    <title>RUNNER: Samples</title>
 </head>
-<body data-ng-controller="Root">
-{{running}}
-    <a href="" onclick="javascript:console.log('click happened')">Test 1</a>
-    <a href="">Test 2</a>
-    <input type="text" ng-model="testNgValue">
-{{testNgValue}}
+<body>
+    <div><span>Run Scenarions:</span> <a href="inpage/">In Page.</a> OR <a href="framed/">Framed</a></div>
 </body>
 </html>

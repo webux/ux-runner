@@ -15,6 +15,12 @@ var module = {}, runner, locals = {}, events = {
     async: true,
     interval: 100,
     defaultTimeout: 1e3,
+    frame: {
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%"
+    },
     timeouts: {
         mini: 100,
         "short": 1e3,
@@ -31,7 +37,7 @@ var module = {}, runner, locals = {}, events = {
     SCENARIO: "scenario",
     STEP: "step",
     SUB_STEP: "subStep"
-}, injector, all, activeStep, intv, scenarios = [], debug = false, walkStep = null, jqMethods = [ "focus", "blur", "click", "mousedown", "mouseover", "mouseup", "select", "touchstart", "touchend", "trigger" ], jqAccessors = [ "val", "text", "html", "scrollTop" ];
+}, injector, all, activeStep, intv, scenarios = [], walkStep = null;
 
 if (!Math.uuid) {
     var c = 0;
@@ -46,7 +52,7 @@ if (!Math.uuid) {
 }
 
 function log(message) {
-    if (debug) {
+    if (runner.debug) {
         console.log.apply(console, arguments);
     }
 }
@@ -55,7 +61,6 @@ function dispatch(event) {
     if (runner.dispatcher) {
         runner.dispatcher.dispatch.apply(runner.dispatcher, arguments);
     } else {
-        options.rootElement = options.rootElement || $("body");
         options.rootElement.trigger.apply(options.rootElement, arguments);
     }
 }
@@ -67,6 +72,18 @@ function init() {
     runner.locals.injector = injector;
     runner.walking = false;
     runner.exit = false;
+    options.window = options.window || window;
+    options.rootElement = options.rootElement || $("body");
+    applyInPageMethods();
+}
+
+function applyInPageMethods() {
+    if (runner.inPageMethods.length) {
+        each(runner.inPageMethods, function(method) {
+            method.apply(runner.options.window, []);
+        });
+        runner.inPageMethods.length = 0;
+    }
 }
 
 function setup() {
@@ -83,7 +100,7 @@ function setup() {
             }
         }
     };
-    runner.steps = all = step(config);
+    all = step(config);
     config.depth = 0;
     activeStep = all;
 }
@@ -310,7 +327,7 @@ function createElementStep(params, parent) {
     return params;
 }
 
-function describe(label, method) {
+function scenario(label, method) {
     create({
         type: types.SCENARIO,
         parentType: types.SCENARIO,
@@ -319,7 +336,7 @@ function describe(label, method) {
     });
 }
 
-function it(label, method, validate, timeout) {
+function scene(label, method, validate, timeout) {
     create({
         type: types.STEP,
         parentType: types.SCENARIO,
@@ -433,17 +450,17 @@ function addJQ(target) {
 }
 
 function createJqMethods(target) {
-    var i = 0, len = jqMethods.length;
+    var i = 0, len = runner.jqMethods.length;
     while (i < len) {
-        target[jqMethods[i]] = jqMethod(target, jqMethods[i]);
+        target[runner.jqMethods[i]] = jqMethod(target, runner.jqMethods[i]);
         i += 1;
     }
 }
 
 function createJqAccessors(target) {
-    var i = 0, len = jqMethods.length;
+    var i = 0, len = runner.jqAccessors.length;
     while (i < len) {
-        target[jqAccessors[i]] = jqMethod(target, jqAccessors[i], true);
+        target[runner.jqAccessors[i]] = jqMethod(target, runner.jqAccessors[i], true);
         i += 1;
     }
 }
@@ -515,7 +532,7 @@ function clearScenarios() {
 }
 
 function applyConfig(config) {
-    runner.options = angular.extend(options, config);
+    runner.options = $.extend(options, config);
 }
 
 function getScenarioNames() {
@@ -554,7 +571,9 @@ function runAll() {
 }
 
 function run(scenarioName) {
+    if (runner.stop) runner.stop();
     init();
+    if (runner.onStart) runner.onStart();
     dispatch(events.START);
     log("run");
     setup();
@@ -596,6 +615,7 @@ function repeat(method, times) {
 
 runner = {
     getInjector: null,
+    debug: false,
     config: applyConfig,
     exit: false,
     run: run,
@@ -613,19 +633,20 @@ runner = {
     states: states,
     createStep: create,
     createElementStep: createElementStep,
-    args: [],
     elementMethods: [],
     scenarios: {},
     locals: locals,
     dispatcher: null,
     each: each,
     repeat: repeat,
-    steps: null
+    inPageMethods: [],
+    jqMethods: [ "focus", "blur", "click", "mousedown", "mouseover", "mouseup", "select", "touchstart", "touchend", "trigger" ],
+    jqAccessors: [ "val", "text", "html", "scrollTop" ]
 };
 
-locals.scenario = describe;
+locals.scenario = scenario;
 
-locals.step = it;
+locals.scene = scene;
 
 locals.find = find;
 
@@ -650,14 +671,18 @@ $("body").ready(function() {
 });
 
 function renderer() {
-    var exports = {}, overlay, content, isMouseDown = false, highlighter, lastStep;
+    var exports = {}, overlay, content, isMouseDown = false, highlighter, lastStep, passed, failed;
     function killEvent(event) {
         event.preventDefault();
         event.stopImmediatePropagation();
     }
     function start(event) {
-        close();
-        overlay = $('<div class="runner-overlay"><div class="runner-title">Type "runner.stop()" in the console to close the tests. <a href="javascript:void(0)" class="runner-close">X</a></div><div class="runner-content"></div></div>');
+        if ($(".runner-overlay").length) {
+            stop();
+        }
+        passed = 0;
+        failed = 0;
+        overlay = $('<div class="runner-overlay">' + '<div class="runner-highlight-container"></div>' + '<div class="runner-title">RUNNER ( ' + '<a href="javascript:void(0)" class="runner-close">X</a> ' + '<a href="javascript:void(0)" class="runner-pause">||</a> ' + '<a href="javascript:void(0)" class="runner-next">&#x25B6;|</a> ' + '<a href="javascript:void(0)" class="runner-resume">&#x25B6;</a> ' + ")" + ' <a href="javascript:void(0)" class="runner-complete"></a> ' + "</div>" + '<div class="runner-clear"></div>' + '<div class="runner-content"></div>' + "</div>");
         content = overlay.find(".runner-content");
         overlay.click(killEvent);
         overlay.mousedown(function() {
@@ -673,10 +698,41 @@ function renderer() {
         });
         highlighter = $('<div class="runner-highlighter"></div>');
         $("body").append(overlay);
-        $("body").append(highlighter);
+        $(".runner-highlight-container").append(highlighter);
+        updateHighlightContainer();
         addBinds();
     }
+    function updateResume() {
+        if (ux.runner.walking) {
+            $(".runner-resume").removeClass("unpaused").addClass("paused");
+        } else {
+            $(".runner-resume").removeClass("paused").addClass("unpaused");
+        }
+    }
+    function updateHighlightContainer() {
+        var container = $(".runner-highlight-container"), frame = $("#targetFrame"), data;
+        if (frame.length) {
+            if (runner.options.frame) {
+                frame.css(runner.options.frame);
+            }
+            data = frame.offset();
+            data.position = "absolute";
+            data.width = frame.width();
+            data.height = frame.height();
+            container.css(data);
+        } else {
+            container.css({
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%"
+            });
+        }
+    }
     function updateHighlight(el) {
+        updateResume();
+        updateHighlightContainer();
         if (el && el.length) {
             var pos = el.offset();
             highlighter.removeClass("runner-highlighter-empty");
@@ -701,10 +757,10 @@ function renderer() {
         updateHighlight(step.element);
         if (!$("#" + step.id).length) {
             var parentIsChain = isChainStep(step.parent), indent = parentIsChain ? 4 : step.depth * 20, isChain = isChainStep(step);
-            if (isChain && lastStep && lastStep.depth >= step.depth) {
+            if (isChain && lastStep && lastStep.depth >= step.depth && step !== step.parent.steps[0]) {
                 content.append("<br/>");
             }
-            content.append('<div id="' + step.id + '" class="runner-pending runner-' + step.type + (isChain ? "-chain" : "") + '" style="text-indent: ' + indent + 'px;"></div>');
+            content.append('<div id="' + step.id + '" class="runner-pending runner-' + step.type + (isChain ? "-chain" : "") + '" style="margin-left: ' + indent + 'px;margin-right: 0px;"></div>');
             writeLabel(step);
         }
     }
@@ -717,6 +773,7 @@ function renderer() {
             writeLabel(step);
         }
         updateHighlight(step.element);
+        updateComplete();
     }
     function stepEnd(event, step) {
         var el = $("#" + step.id);
@@ -725,18 +782,40 @@ function renderer() {
         updateHighlight(step.element);
         scrollToBottom();
         lastStep = step;
+        updateCounters(step);
+    }
+    function updateCounters(step) {
+        if (step.pass) {
+            passed += 1;
+        } else {
+            failed += 1;
+        }
+        updateComplete();
+    }
+    function updateComplete(done) {
+        var complete = $(".runner-complete");
+        complete.removeClass("paused");
+        complete.removeClass("passed");
+        complete.removeClass("failed");
+        if (runner.walking) {
+            complete.addClass("paused");
+        } else if (failed) {
+            complete.addClass("failed");
+        } else {
+            complete.addClass("passed");
+        }
+        complete.html(passed + " steps passed, " + failed + " failed." + (done ? " COMPLETE" : ""));
     }
     function scrollToBottom() {
         overlay.scrollTop(content.height());
     }
     function done() {
         scrollToBottom();
+        updateComplete(true);
     }
-    function close() {
+    function stop() {
         if (overlay) {
-            ux.runner.pause();
-            overlay.remove();
-            highlighter.remove();
+            $(".runner-overlay").remove();
             content = null;
             overlay = null;
             highlighter = null;
@@ -744,37 +823,44 @@ function renderer() {
             removeBinds();
         }
     }
+    function close() {
+        if (overlay) {
+            stop();
+            ux.runner.pause();
+        }
+    }
     function addBinds() {
-        var body = $("body");
-        body.bind(runner.events.STEP_START, stepStart);
-        body.bind(runner.events.STEP_UPDATE, stepUpdate);
-        body.bind(runner.events.STEP_END, stepEnd);
-        body.bind(runner.events.STEP_PAUSE, stepPause);
-        body.bind(runner.events.DONE, done);
+        var re = runner.options.rootElement;
+        re.bind(runner.events.START, start);
+        re.bind(runner.events.STEP_START, stepStart);
+        re.bind(runner.events.STEP_UPDATE, stepUpdate);
+        re.bind(runner.events.STEP_END, stepEnd);
+        re.bind(runner.events.STEP_PAUSE, stepPause);
+        re.bind(runner.events.DONE, done);
         $(".runner-close").click(runner.stop);
+        $(".runner-pause").click(runner.pause);
+        $(".runner-next").click(runner.next);
+        $(".runner-resume").click(runner.resume);
     }
     function removeBinds() {
-        var body = $("body");
-        body.unbind(runner.events.STEP_START, stepStart);
-        body.unbind(runner.events.STEP_UPDATE, stepUpdate);
-        body.unbind(runner.events.STEP_END, stepEnd);
-        body.unbind(runner.events.STEP_PAUSE, stepPause);
-        body.unbind(runner.events.DONE, done);
+        var re = runner.options.rootElement;
+        re.unbind(runner.events.START, start);
+        re.unbind(runner.events.STEP_START, stepStart);
+        re.unbind(runner.events.STEP_UPDATE, stepUpdate);
+        re.unbind(runner.events.STEP_END, stepEnd);
+        re.unbind(runner.events.STEP_PAUSE, stepPause);
+        re.unbind(runner.events.DONE, done);
         $(".runner-close").unbind("click", runner.stop);
+        $(".runner-pause").unbind("click", runner.pause);
+        $(".runner-next").unbind("click", runner.next);
+        $(".runner-resume").unbind("click", runner.resume);
     }
     exports.start = start;
     exports.stepStart = stepStart;
     exports.stepEnd = stepEnd;
     exports.done = done;
     runner.stop = close;
-    function waitForScope() {
-        var body = $("body");
-        body.ready(function() {
-            var body = $("body");
-            body.bind(runner.events.START, start);
-        });
-    }
-    waitForScope();
+    runner.onStart = start;
     return exports;
 }
 
@@ -1197,9 +1283,9 @@ runner.elementMethods.push({
     }
 });
 
-(function($) {
+runner.inPageMethods.push(function() {
     "use strict";
-    var $fn = jQuery.fn, input;
+    var $fn = this.jQuery.fn, input;
     $fn.getCursorPosition = function() {
         if (this.length === 0) {
             return -1;
@@ -1272,7 +1358,7 @@ runner.elementMethods.push({
         }
         return this;
     };
-})(jQuery);
+});
 
 runner.elementMethods.push(function(target) {
     target.sendMouse = function(focus, namespace) {

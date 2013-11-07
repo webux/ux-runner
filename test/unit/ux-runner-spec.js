@@ -1,6 +1,6 @@
 describe("ux-runner", function () {
 
-    var events, scenario, console, body, logged;
+    var events, scenario, body, logged;
 
     beforeEach(function () {
         ux.runner.clearScenarios();
@@ -16,7 +16,11 @@ describe("ux-runner", function () {
             '<input type="text" ng-model="testNgValue">' +
             '</div>'
         );
-        ux.runner.config({async: false, rootElement: body}); // rootElement determines runner's scope.
+        ux.runner.config({
+            async: false,
+            rootElement: body// rootElement determines runner's scope.
+        });
+        ux.runner.onStart = null, // this keeps the renderer from starting.
         ux.runner.dispatcher = {
             events: [],
             dispatch: function (event, step) {
@@ -24,14 +28,14 @@ describe("ux-runner", function () {
             }
         };
         events = ux.runner.events;
-        scenario = ux.runner.addScenario('test1', function (step, find) {
-            step("test1 scenario", function () {
+        scenario = ux.runner.addScenario('test1', function (scene, find) {
+            scene("test1 scenario", function () {
                 find("a:eq(0)").click();
             });
         });
     });
 
-    it("scenario should create a step", function () {
+    it("scenario should create a scene", function () {
         ux.runner.run();
         expect(ux.runner.dispatcher.events.length).toBe(17);
     });
@@ -71,10 +75,10 @@ describe("ux-runner", function () {
         expect(logged).toBe(true);
     });
 
-    it("should exit if scenario does not have at least one step.", function () {
+    it("should exit if scenario does not have at least one scene.", function () {
         ux.runner.clearScenarios();
-        scenario = ux.runner.addScenario('test1', function (step, find) {
-            // Note this is missing step on purpose.
+        scenario = ux.runner.addScenario('test1', function (scene, find) {
+            // Note this is missing scene on purpose.
             find("a:eq(0)").click();
         });
         ux.runner.run();
@@ -84,8 +88,8 @@ describe("ux-runner", function () {
     describe("sendKeys", function () {
         it("should fire the following sequence of events", function () {
             ux.runner.clearScenarios();
-            scenario = ux.runner.addScenario("test 1", function (step, find) {
-                step("step 1", function () {
+            scenario = ux.runner.addScenario("test 1", function (scene, find) {
+                scene("scene 1", function () {
                     find("input").sendKeys("'abc' enter");
                 });
             });
@@ -121,8 +125,8 @@ describe("ux-runner", function () {
 
         it("should fire the correct sequence of events", function () {
             ux.runner.clearScenarios();
-            scenario = ux.runner.addScenario("test 1", function (step, find) {
-                step("step 1", function () {
+            scenario = ux.runner.addScenario("test 1", function (scene, find) {
+                scene("scene 1", function () {
                     find("a:eq(1)").sendMouse();
                 });
             });
@@ -163,8 +167,8 @@ describe("ux-runner", function () {
 
         it("should fire the correct sequence of events if focus is passed", function () {
             ux.runner.clearScenarios();
-            scenario = ux.runner.addScenario("test 1", function (step, find) {
-                step("step 1", function () {
+            scenario = ux.runner.addScenario("test 1", function (scene, find) {
+                scene("scene 1", function () {
                     find("a:eq(1)").sendMouse(true);
                 });
             });
@@ -212,8 +216,8 @@ describe("ux-runner", function () {
 
         it("should fire the correct sequence of events", function () {
             ux.runner.clearScenarios();
-            scenario = ux.runner.addScenario("test 1", function (step, find) {
-                step("step 1", function () {
+            scenario = ux.runner.addScenario("test 1", function (scene, find) {
+                scene("scene 1", function () {
                     find("a:eq(1)").sendTap();
                 });
             });
@@ -254,8 +258,8 @@ describe("ux-runner", function () {
 
         it("should fire the correct sequence of events if focus is passed", function () {
             ux.runner.clearScenarios();
-            scenario = ux.runner.addScenario("test 1", function (step, find) {
-                step("step 1", function () {
+            scenario = ux.runner.addScenario("test 1", function (scene, find) {
+                scene("scene 1", function () {
                     find("a:eq(1)").sendTap(true);
                 });
             });

@@ -4,7 +4,9 @@ function renderer() {
         content,
         isMouseDown = false,
         highlighter,
-        lastStep;
+        lastStep,
+        passed,
+        failed;
 
     function killEvent(event) {
         event.preventDefault();
@@ -12,8 +14,24 @@ function renderer() {
     }
 
     function start(event) {
-        close();
-        overlay = $('<div class="runner-overlay"><div class="runner-title">Type "runner.stop()" in the console to close the tests. <a href="javascript:void(0)" class="runner-close">X</a></div><div class="runner-content"></div></div>');
+        if ($('.runner-overlay').length) {
+            stop();
+        }
+        passed = 0;
+        failed = 0;
+        overlay = $('<div class="runner-overlay">' +
+                '<div class="runner-highlight-container"></div>' +
+                '<div class="runner-title">RUNNER ( ' +
+                    '<a href="javascript:void(0)" class="runner-close">X</a> ' +
+                    '<a href="javascript:void(0)" class="runner-pause">||</a> ' +
+                    '<a href="javascript:void(0)" class="runner-next">&#x25B6;|</a> ' +
+                    '<a href="javascript:void(0)" class="runner-resume">&#x25B6;</a> ' +
+                    ')' +
+                    ' <a href="javascript:void(0)" class="runner-complete"></a> ' +
+                '</div>' +
+                '<div class="runner-clear"></div>' +
+                '<div class="runner-content"></div>' +
+            '</div>');
         content = overlay.find('.runner-content');
         overlay.click(killEvent);
         overlay.mousedown(function () {
@@ -30,11 +48,38 @@ function renderer() {
 
         highlighter = $('<div class="runner-highlighter"></div>');
         $('body').append(overlay);
-        $('body').append(highlighter);
+        $('.runner-highlight-container').append(highlighter);
+        updateHighlightContainer();
         addBinds();
     }
 
+    function updateResume() {
+        if (ux.runner.walking) {
+            $('.runner-resume').removeClass('unpaused').addClass('paused');
+        } else {
+            $('.runner-resume').removeClass('paused').addClass('unpaused');
+        }
+    }
+
+    function updateHighlightContainer() {
+        var container = $('.runner-highlight-container'), frame = $('#targetFrame'), data;
+        if (frame.length) {
+            if (runner.options.frame) {
+                frame.css(runner.options.frame);
+            }
+            data = frame.offset();
+            data.position = "absolute";
+            data.width = frame.width();
+            data.height = frame.height();
+            container.css(data);
+        } else {
+            container.css({position: "absolute", top: 0, left: 0, width: "100%", height: "100%"});
+        }
+    }
+
     function updateHighlight(el) {
+        updateResume();
+        updateHighlightContainer();
         if (el && el.length) {
             var pos = el.offset();
             highlighter.removeClass('runner-highlighter-empty');
@@ -66,10 +111,10 @@ function renderer() {
             var parentIsChain = isChainStep(step.parent),
                 indent = parentIsChain ? 4 : step.depth * 20,
                 isChain = isChainStep(step);
-            if (isChain && lastStep && lastStep.depth >= step.depth) {
+            if (isChain && lastStep && lastStep.depth >= step.depth && step !== step.parent.steps[0]) {
                 content.append('<br/>');
             }
-            content.append('<div id="' + step.id + '" class="runner-pending runner-' + step.type + (isChain ? '-chain' : '') + '" style="text-indent: ' + indent + 'px;"></div>');
+            content.append('<div id="' + step.id + '" class="runner-pending runner-' + step.type + (isChain ? '-chain' : '') + '" style="margin-left: ' + indent + 'px;margin-right: 0px;"></div>');
             writeLabel(step);
         }
     }
@@ -84,6 +129,7 @@ function renderer() {
             writeLabel(step);
         }
         updateHighlight(step.element);
+        updateComplete();
     }
 
     function stepEnd(event, step) {
@@ -93,6 +139,31 @@ function renderer() {
         updateHighlight(step.element);
         scrollToBottom();
         lastStep = step;
+        updateCounters(step);
+    }
+
+    function updateCounters(step) {
+        if (step.pass) {
+            passed += 1;
+        } else {
+            failed += 1;
+        }
+        updateComplete();
+    }
+
+    function updateComplete(done) {
+        var complete = $('.runner-complete');
+        complete.removeClass('paused');
+        complete.removeClass('passed');
+        complete.removeClass('failed');
+        if (runner.walking) {
+            complete.addClass('paused');
+        } else if (failed) {
+            complete.addClass('failed');
+        } else {
+            complete.addClass('passed');
+        }
+        complete.html(passed + ' steps passed, ' + failed + ' failed.' + (done ? ' COMPLETE' : ''));
     }
 
     function scrollToBottom() {
@@ -101,13 +172,12 @@ function renderer() {
 
     function done() {
         scrollToBottom();
+        updateComplete(true);
     }
 
-    function close() {
+    function stop() {
         if (overlay) {
-            ux.runner.pause();
-            overlay.remove();
-            highlighter.remove();
+            $('.runner-overlay').remove();
             content = null;
             overlay = null;
             highlighter = null;
@@ -116,24 +186,39 @@ function renderer() {
         }
     }
 
+    function close() {
+        if (overlay) {
+            stop();
+            ux.runner.pause();
+        }
+    }
+
     function addBinds() {
-        var body = $('body');
-        body.bind(runner.events.STEP_START, stepStart);
-        body.bind(runner.events.STEP_UPDATE, stepUpdate);
-        body.bind(runner.events.STEP_END, stepEnd);
-        body.bind(runner.events.STEP_PAUSE, stepPause);
-        body.bind(runner.events.DONE, done);
+        var re = runner.options.rootElement;
+        re.bind(runner.events.START, start);
+        re.bind(runner.events.STEP_START, stepStart);
+        re.bind(runner.events.STEP_UPDATE, stepUpdate);
+        re.bind(runner.events.STEP_END, stepEnd);
+        re.bind(runner.events.STEP_PAUSE, stepPause);
+        re.bind(runner.events.DONE, done);
         $('.runner-close').click(runner.stop);
+        $('.runner-pause').click(runner.pause);
+        $('.runner-next').click(runner.next);
+        $('.runner-resume').click(runner.resume);
     }
 
     function removeBinds() {
-        var body = $('body');
-        body.unbind(runner.events.STEP_START, stepStart);
-        body.unbind(runner.events.STEP_UPDATE, stepUpdate);
-        body.unbind(runner.events.STEP_END, stepEnd);
-        body.unbind(runner.events.STEP_PAUSE, stepPause);
-        body.unbind(runner.events.DONE, done);
+        var re = runner.options.rootElement;
+        re.unbind(runner.events.START, start);
+        re.unbind(runner.events.STEP_START, stepStart);
+        re.unbind(runner.events.STEP_UPDATE, stepUpdate);
+        re.unbind(runner.events.STEP_END, stepEnd);
+        re.unbind(runner.events.STEP_PAUSE, stepPause);
+        re.unbind(runner.events.DONE, done);
         $('.runner-close').unbind('click', runner.stop);
+        $('.runner-pause').unbind('click', runner.pause);
+        $('.runner-next').unbind('click', runner.next);
+        $('.runner-resume').unbind('click', runner.resume);
     }
 
     exports.start = start;
@@ -141,16 +226,7 @@ function renderer() {
     exports.stepEnd = stepEnd;
     exports.done = done;
     runner.stop = close;
-
-    function waitForScope() {
-        var body = $('body');
-        body.ready(function () {
-            var body = $('body');
-            body.bind(runner.events.START, start);
-        });
-    }
-
-    waitForScope();
+    runner.onStart = start;
 
     return exports;
 }

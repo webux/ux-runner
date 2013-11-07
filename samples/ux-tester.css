@@ -14,6 +14,7 @@
     border: 4px solid #FF0000;
     border-radius: 10px;
     position: absolute;
+    pointer-events: none;
 }
 
 .runner-highlighter-empty {
@@ -30,35 +31,48 @@
 }
 
 .runner-overlay .runner-title {
+    position: relative;
+    float: left;
     padding: 10px;
     color: #FFFFFF;
     background-color: rgba(0, 0, 0, 0.75);
+    width: auto;
+}
+
+.runner-clear {
+    clear: both;
 }
 
 .runner-root {
     font-size: 20px;
     font-weight: bold;
+    background-color: rgba(00, 11, 33, 0.5);
+    text-indent: 2px;
+    border-bottom: 1px solid #000000;
 }
 
 .runner-scenario {
     font-size: 16px;
     font-weight: bold;
+    background-color: rgba(0, 33, 66, 0.25);
+    text-indent: 2px;
+    border-bottom: 1px solid #000000;
 }
 
 .runner-step {
     font-size: 14px;
     font-weight: bold;
-}
-
-.runner-subStep {
-    font-size: 12px;
-    font-weight: normal;
+    background-color: rgba(33, 33, 33, 0.25);
+    border-bottom: 1px solid #000000;
 }
 
 .runner-subStep-chain {
     display: inline-block;
     font-size: 12px;
     font-weight: normal;
+    text-indent: 2px;
+    background-color: rgba(0, 0, 0, 0.25);
+    border-bottom: 1px solid #000000;
 }
 
 .runner-overlay .runner-pending {
@@ -73,7 +87,7 @@
     color: #c0392b;
 }
 
-.runner-step-count, .runner-timed-out, .runner-step-paused, .runner-close {
+.runner-step-count, .runner-timed-out, .runner-step-paused, .runner-close, .runner-pause, .runner-next, .runner-resume, .runner-complete {
     display: inline;
     font-size: 12px;
     background: #000000;
@@ -83,6 +97,7 @@
     border-radius: 12px;
     color: #FFFFFF;
     min-width: 10px;
+    line-height: 12px;
 }
 
 .runner-timed-out {
@@ -98,4 +113,52 @@
 .runner-close {
     background: #FF0000;
     color: #FFFFFF;
+    text-decoration: none;
+}
+
+.runner-pause {
+    background: #336699;
+    color: #FFFFFF;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.runner-next {
+    background: #336699;
+    color: #FFFFFF;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.runner-resume.unpaused {
+    display: none;
+}
+
+.runner-resume.paused {
+    background-color: #33CC33;
+    color: #FFFFFF;
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.runner-complete {
+    display: none;
+    color: #FFFFFF;
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.runner-complete.passed {
+    display: inline;
+    background-color: #33CC33;
+}
+
+.runner-complete.failed {
+    display: inline;
+    background-color: #FF0000;
+}
+
+.runner-complete.paused {
+    display: inline;
+    background-color: #FF6600;
 }

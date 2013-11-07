@@ -362,9 +362,9 @@ runner.elementMethods.push({
  * @email brandencash@crutzdesigns.com
  */
 
-(function ($) {
+runner.inPageMethods.push(function () {
     'use strict';
-    var $fn = jQuery.fn, input;
+    var $fn = this.jQuery.fn, input;
     $fn.getCursorPosition = function () {
         if (this.length === 0) {
             return -1;
@@ -453,4 +453,4 @@ runner.elementMethods.push({
 
         return this;
     };
-}(jQuery));
+});

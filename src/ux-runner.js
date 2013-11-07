@@ -1,16 +1,6 @@
 /*global $*/
 
-// TODO: make a link from the new.html page that will auto start the tests.
-// TODO: console above all dom to show current status
-// TODO: state machine to run the tests
-// TODO: be able to start from a debug page.
-// TODO: run test from test script example. (cliff script page).
-
-// TODO: make so that params are passed as an object. So they can easily see what each one does.
-// TODO: make pull from default config. what the defaultTimeout is. set wait's in there.
-// TODO: waitForEvent(eventName)
-// TODO: it needs to take a params object.
-
+// TODO: waitForJQEvent(eventName)
 
 var module = {},
     runner,
@@ -27,6 +17,12 @@ var module = {},
         async: true,
         interval: 100,
         defaultTimeout: 1000,
+        frame: {
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%"
+        },
         timeouts: {
             mini: 100,
             short: 1000,
@@ -51,11 +47,7 @@ var module = {},
     activeStep,
     intv,
     scenarios = [],
-    debug = false,
-    walkStep = null,
-//TODO: make jqMethods and jqAccessors public so that they can be added to for new jquery methods. jqMethods resturn the element, jqAccessors return the value.
-    jqMethods = ['focus', 'blur', 'click', 'mousedown', 'mouseover', 'mouseup', 'select', 'touchstart', 'touchend', 'trigger'],
-    jqAccessors = ['val', 'text', 'html', 'scrollTop'];
+    walkStep = null;
 
 if (!Math.uuid) {
     var c = 0;
@@ -70,7 +62,7 @@ if (!Math.uuid) {
 }
 
 function log(message) {
-    if (debug) {
+    if (runner.debug) {
         console.log.apply(console, arguments);
     }
 }
@@ -80,7 +72,6 @@ function dispatch(event) {
     if (runner.dispatcher) {
         runner.dispatcher.dispatch.apply(runner.dispatcher, arguments);
     } else {
-        options.rootElement = options.rootElement || $("body");
         options.rootElement.trigger.apply(options.rootElement, arguments);
     }
 }
@@ -90,6 +81,18 @@ function init() {
     runner.locals.injector = injector;
     runner.walking = false;
     runner.exit = false;
+    options.window = options.window || window;
+    options.rootElement = options.rootElement || $("body");
+    applyInPageMethods();
+}
+
+function applyInPageMethods() {
+    if (runner.inPageMethods.length) {
+        each(runner.inPageMethods, function (method) {
+            method.apply(runner.options.window, []);
+        });
+        runner.inPageMethods.length = 0;
+    }
 }
 
 function setup() {
@@ -101,7 +104,7 @@ function setup() {
             dispatch(events.DONE);
         }
     }};
-    runner.steps = all = step(config);
+    all = step(config);
     config.depth = 0;
     activeStep = all;
 }
@@ -347,7 +350,7 @@ function createElementStep(params, parent) {
     return params;
 }
 
-function describe(label, method) {
+function scenario(label, method) {
     create({
         type: types.SCENARIO,
         parentType: types.SCENARIO,
@@ -356,7 +359,7 @@ function describe(label, method) {
     });
 }
 
-function it(label, method, validate, timeout) {
+function scene(label, method, validate, timeout) {
     create({
         type: types.STEP,
         parentType: types.SCENARIO,
@@ -471,17 +474,17 @@ function addJQ(target) {
 }
 
 function createJqMethods(target) {
-    var i = 0, len = jqMethods.length;
+    var i = 0, len = runner.jqMethods.length;
     while (i < len) {
-        target[jqMethods[i]] = jqMethod(target, jqMethods[i]);
+        target[runner.jqMethods[i]] = jqMethod(target, runner.jqMethods[i]);
         i += 1;
     }
 }
 
 function createJqAccessors(target) {
-    var i = 0, len = jqMethods.length;
+    var i = 0, len = runner.jqAccessors.length;
     while (i < len) {
-        target[jqAccessors[i]] = jqMethod(target, jqAccessors[i], true);
+        target[runner.jqAccessors[i]] = jqMethod(target, runner.jqAccessors[i], true);
         i += 1;
     }
 }
@@ -547,7 +550,7 @@ function clearScenarios() {
 }
 
 function applyConfig(config) {
-    runner.options = angular.extend(options, config);
+    runner.options = $.extend(options, config);
 }
 
 function getScenarioNames() {
@@ -586,7 +589,9 @@ function runAll() {
 }
 
 function run(scenarioName) {
+    if (runner.stop) runner.stop();
     init();
+    if (runner.onStart) runner.onStart();
     dispatch(events.START);
     log("run");
     setup();
@@ -628,6 +633,7 @@ function repeat(method, times) {
 
 runner = {
     getInjector: null,
+    debug: false,
     config: applyConfig,
     exit: false,
     run: run,
@@ -645,17 +651,18 @@ runner = {
     states: states,
     createStep: create,
     createElementStep: createElementStep,
-    args: [],
     elementMethods: [],
     scenarios: {}, // external stub for constants.
     locals: locals,
     dispatcher: null,
     each: each,
     repeat: repeat,
-    steps: null
+    inPageMethods: [],
+    jqMethods: ['focus', 'blur', 'click', 'mousedown', 'mouseover', 'mouseup', 'select', 'touchstart', 'touchend', 'trigger'],
+    jqAccessors: ['val', 'text', 'html', 'scrollTop']
 };
-locals.scenario = describe;
-locals.step = it;
+locals.scenario = scenario;
+locals.scene = scene;
 locals.find = find;
 locals.options = options;
 locals.wait = wait;
