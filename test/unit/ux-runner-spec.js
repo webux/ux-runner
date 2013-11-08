@@ -1,6 +1,6 @@
 describe("ux-runner", function () {
 
-    var events, scenario, body, logged;
+    var events, scenario, doc, logged;
 
     beforeEach(function () {
         ux.runner.clearScenarios();
@@ -10,15 +10,21 @@ describe("ux-runner", function () {
                 logged = true;
             }
         };
-        body = $('<div>' +
+        doc = $('<body><div>' +
             '<a href="" onclick="javascript:window.tmp.log(\'click happened\')">Test 1</a>' +
             '<a href="">Test 2</a>' +
             '<input type="text" ng-model="testNgValue">' +
-            '</div>'
+            '</div></body>'
         );
         ux.runner.config({
             async: false,
-            rootElement: body// rootElement determines runner's scope.
+            window: {
+                $: $,
+                jQuery: jQuery,
+                angular: angular,
+                document: doc
+            },
+            rootElement: doc// rootElement determines runner's scope.
         });
         ux.runner.onStart = null, // this keeps the renderer from starting.
         ux.runner.dispatcher = {
@@ -51,17 +57,17 @@ describe("ux-runner", function () {
                     {event: events.STEP_START, type: ux.runner.types.SCENARIO},
                     {event: events.STEP_UPDATE, type: ux.runner.types.SCENARIO},
                         // step
-                        {event: events.STEP_START, type: ux.runner.types.STEP},
-                        {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                        {event: events.STEP_START, type: ux.runner.types.SCENE},
+                        {event: events.STEP_UPDATE, type: ux.runner.types.SCENE},
                             // find
-                            {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                            {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                            {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
+                            {event: events.STEP_START, type: ux.runner.types.STEP},
+                            {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                            {event: events.STEP_END, type: ux.runner.types.STEP},
                             // click
-                            {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                            {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                            {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
-                        {event: events.STEP_END, type: ux.runner.types.STEP},
+                            {event: events.STEP_START, type: ux.runner.types.STEP},
+                            {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                            {event: events.STEP_END, type: ux.runner.types.STEP},
+                        {event: events.STEP_END, type: ux.runner.types.SCENE},
                     {event: events.STEP_END, type: ux.runner.types.SCENARIO},
                 {event: events.STEP_END, type: ux.runner.types.ROOT},
             {event: events.DONE, type: undefined}
@@ -103,17 +109,17 @@ describe("ux-runner", function () {
                         {event: events.STEP_START, type: ux.runner.types.SCENARIO},
                         {event: events.STEP_UPDATE, type: ux.runner.types.SCENARIO},
                             // step
-                            {event: events.STEP_START, type: ux.runner.types.STEP},
-                            {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                            {event: events.STEP_START, type: ux.runner.types.SCENE},
+                            {event: events.STEP_UPDATE, type: ux.runner.types.SCENE},
                                 // find
-                                {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
+                                {event: events.STEP_START, type: ux.runner.types.STEP},
+                                {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                                {event: events.STEP_END, type: ux.runner.types.STEP},
                                 // sendKeys
-                                {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
-                            {event: events.STEP_END, type: ux.runner.types.STEP},
+                                {event: events.STEP_START, type: ux.runner.types.STEP},
+                                {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                                {event: events.STEP_END, type: ux.runner.types.STEP},
+                            {event: events.STEP_END, type: ux.runner.types.SCENE},
                         {event: events.STEP_END, type: ux.runner.types.SCENARIO},
                     {event: events.STEP_END, type: ux.runner.types.ROOT},
                 {event: events.DONE, type: undefined}
@@ -140,25 +146,25 @@ describe("ux-runner", function () {
                         {event: events.STEP_START, type: ux.runner.types.SCENARIO},
                         {event: events.STEP_UPDATE, type: ux.runner.types.SCENARIO},
                             // step
-                            {event: events.STEP_START, type: ux.runner.types.STEP},
-                            {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                            {event: events.STEP_START, type: ux.runner.types.SCENE},
+                            {event: events.STEP_UPDATE, type: ux.runner.types.SCENE},
                                 // find
-                                {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
+                                {event: events.STEP_START, type: ux.runner.types.STEP},
+                                {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                                {event: events.STEP_END, type: ux.runner.types.STEP},
                                 // mouseDown
-                                {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
+                                {event: events.STEP_START, type: ux.runner.types.STEP},
+                                {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                                {event: events.STEP_END, type: ux.runner.types.STEP},
                                 // mouseUp
-                                {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
+                                {event: events.STEP_START, type: ux.runner.types.STEP},
+                                {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                                {event: events.STEP_END, type: ux.runner.types.STEP},
                                 // click
-                                {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
-                            {event: events.STEP_END, type: ux.runner.types.STEP},
+                                {event: events.STEP_START, type: ux.runner.types.STEP},
+                                {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                                {event: events.STEP_END, type: ux.runner.types.STEP},
+                            {event: events.STEP_END, type: ux.runner.types.SCENE},
                         {event: events.STEP_END, type: ux.runner.types.SCENARIO},
                     {event: events.STEP_END, type: ux.runner.types.ROOT},
                 {event: events.DONE, type: undefined}
@@ -182,29 +188,29 @@ describe("ux-runner", function () {
                         {event: events.STEP_START, type: ux.runner.types.SCENARIO},
                         {event: events.STEP_UPDATE, type: ux.runner.types.SCENARIO},
                             // step
-                            {event: events.STEP_START, type: ux.runner.types.STEP},
-                            {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                            {event: events.STEP_START, type: ux.runner.types.SCENE},
+                            {event: events.STEP_UPDATE, type: ux.runner.types.SCENE},
                                 // find
-                                {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
+                                {event: events.STEP_START, type: ux.runner.types.STEP},
+                                {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                                {event: events.STEP_END, type: ux.runner.types.STEP},
                                 // mouseDown
-                                {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
+                                {event: events.STEP_START, type: ux.runner.types.STEP},
+                                {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                                {event: events.STEP_END, type: ux.runner.types.STEP},
                                 // focus
-                                {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
+                                {event: events.STEP_START, type: ux.runner.types.STEP},
+                                {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                                {event: events.STEP_END, type: ux.runner.types.STEP},
                                 // mouseUp
-                                {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
+                                {event: events.STEP_START, type: ux.runner.types.STEP},
+                                {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                                {event: events.STEP_END, type: ux.runner.types.STEP},
                                 // click
-                                {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
-                            {event: events.STEP_END, type: ux.runner.types.STEP},
+                                {event: events.STEP_START, type: ux.runner.types.STEP},
+                                {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                                {event: events.STEP_END, type: ux.runner.types.STEP},
+                            {event: events.STEP_END, type: ux.runner.types.SCENE},
                         {event: events.STEP_END, type: ux.runner.types.SCENARIO},
                     {event: events.STEP_END, type: ux.runner.types.ROOT},
                 {event: events.DONE, type: undefined}
@@ -231,25 +237,25 @@ describe("ux-runner", function () {
                         {event: events.STEP_START, type: ux.runner.types.SCENARIO},
                         {event: events.STEP_UPDATE, type: ux.runner.types.SCENARIO},
                             // step
-                            {event: events.STEP_START, type: ux.runner.types.STEP},
-                            {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                            {event: events.STEP_START, type: ux.runner.types.SCENE},
+                            {event: events.STEP_UPDATE, type: ux.runner.types.SCENE},
                                 // find
-                                {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
+                                {event: events.STEP_START, type: ux.runner.types.STEP},
+                                {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                                {event: events.STEP_END, type: ux.runner.types.STEP},
                                 // touchStart
-                                {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
+                                {event: events.STEP_START, type: ux.runner.types.STEP},
+                                {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                                {event: events.STEP_END, type: ux.runner.types.STEP},
                                 // touchEnd
-                                {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
+                                {event: events.STEP_START, type: ux.runner.types.STEP},
+                                {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                                {event: events.STEP_END, type: ux.runner.types.STEP},
                                 // click
-                                {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
-                            {event: events.STEP_END, type: ux.runner.types.STEP},
+                                {event: events.STEP_START, type: ux.runner.types.STEP},
+                                {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                                {event: events.STEP_END, type: ux.runner.types.STEP},
+                            {event: events.STEP_END, type: ux.runner.types.SCENE},
                         {event: events.STEP_END, type: ux.runner.types.SCENARIO},
                     {event: events.STEP_END, type: ux.runner.types.ROOT},
                 {event: events.DONE, type: undefined}
@@ -273,29 +279,29 @@ describe("ux-runner", function () {
                         {event: events.STEP_START, type: ux.runner.types.SCENARIO},
                         {event: events.STEP_UPDATE, type: ux.runner.types.SCENARIO},
                             // step
-                            {event: events.STEP_START, type: ux.runner.types.STEP},
-                            {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                            {event: events.STEP_START, type: ux.runner.types.SCENE},
+                            {event: events.STEP_UPDATE, type: ux.runner.types.SCENE},
                                 // find
-                                {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
+                                {event: events.STEP_START, type: ux.runner.types.STEP},
+                                {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                                {event: events.STEP_END, type: ux.runner.types.STEP},
                                 // touchStart
-                                {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
+                                {event: events.STEP_START, type: ux.runner.types.STEP},
+                                {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                                {event: events.STEP_END, type: ux.runner.types.STEP},
                                 // focus
-                                {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
+                                {event: events.STEP_START, type: ux.runner.types.STEP},
+                                {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                                {event: events.STEP_END, type: ux.runner.types.STEP},
                                 // touchEnd
-                                {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
+                                {event: events.STEP_START, type: ux.runner.types.STEP},
+                                {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                                {event: events.STEP_END, type: ux.runner.types.STEP},
                                 // click
-                                {event: events.STEP_START, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_UPDATE, type: ux.runner.types.SUB_STEP},
-                                {event: events.STEP_END, type: ux.runner.types.SUB_STEP},
-                            {event: events.STEP_END, type: ux.runner.types.STEP},
+                                {event: events.STEP_START, type: ux.runner.types.STEP},
+                                {event: events.STEP_UPDATE, type: ux.runner.types.STEP},
+                                {event: events.STEP_END, type: ux.runner.types.STEP},
+                            {event: events.STEP_END, type: ux.runner.types.SCENE},
                         {event: events.STEP_END, type: ux.runner.types.SCENARIO},
                     {event: events.STEP_END, type: ux.runner.types.ROOT},
                 {event: events.DONE, type: undefined}

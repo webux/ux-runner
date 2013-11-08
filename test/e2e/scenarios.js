@@ -2,7 +2,7 @@
 (function () {
     'use strict';
 
-    function scenarios(scenario, scene, find, options, wait) {
+    function scenarios(repeatUntil, scenario, scene, find, options, wait) {
         console.log("scenarios");
         //        injector.invoke(selectAccount);
 
@@ -18,8 +18,12 @@
                     find("a:eq(1)").text();
                 });
 
-                scene("should set the text", function () {
-                    find("input").focus().sendKeys('test', 'test');
+                repeatUntil(function(done, count) {
+                    if (count > 2) {
+                        done();
+                        return;
+                    }
+                    find("input").focus().select().sendKeys('test', 'test');
                 });
             });
 

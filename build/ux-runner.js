@@ -4,6 +4,67 @@
 * License: MIT.
 */
 (function(exports, global){
+function dispatcher(target, scope, map) {
+    var listeners = {};
+    function off(event, callback) {
+        var index, list;
+        list = listeners[event];
+        if (list) {
+            if (callback) {
+                index = list.indexOf(callback);
+                if (index !== -1) {
+                    list.splice(index, 1);
+                }
+            } else {
+                list.length = 0;
+            }
+        }
+    }
+    function on(event, callback) {
+        listeners[event] = listeners[event] || [];
+        listeners[event].push(callback);
+        return function() {
+            off(event, callback);
+        };
+    }
+    function fire(callback, args) {
+        return callback && callback.apply(target, args);
+    }
+    function dispatch(event) {
+        if (listeners[event]) {
+            var i = 0, list = listeners[event], len = list.length;
+            while (i < len) {
+                fire(list[i], arguments);
+                i += 1;
+            }
+        }
+    }
+    if (scope && map) {
+        target.on = scope[map.on] && scope[map.on].bind(scope);
+        target.off = scope[map.off] && scope[map.off].bind(scope);
+        target.dispatch = scope[map.dispatch].bind(scope);
+    } else {
+        target.on = on;
+        target.off = off;
+        target.dispatch = dispatch;
+    }
+}
+
+function toArray(obj) {
+    var result = [], i = 0, len = obj.length;
+    while (i < len) {
+        result.push(obj[i]);
+        i += 1;
+    }
+    return result;
+}
+
+exports.util = exports.util || {};
+
+exports.util.array = exports.util.array || {};
+
+exports.util.array.toArray = toArray;
+
 var module = {}, runner, locals = {}, events = {
     START: "runner:start",
     STEP_START: "runner:stepStart",
@@ -35,8 +96,8 @@ var module = {}, runner, locals = {}, events = {
 }, types = {
     ROOT: "root",
     SCENARIO: "scenario",
-    STEP: "step",
-    SUB_STEP: "subStep"
+    SCENE: "scene",
+    STEP: "step"
 }, injector, all, activeStep, intv, scenarios = [], walkStep = null;
 
 if (!Math.uuid) {
@@ -61,19 +122,23 @@ function dispatch(event) {
     if (runner.dispatcher) {
         runner.dispatcher.dispatch.apply(runner.dispatcher, arguments);
     } else {
-        options.rootElement.trigger.apply(options.rootElement, arguments);
+        runner.dispatch.apply(runner, arguments);
     }
 }
 
-function init() {
-    injector = runner.getInjector ? runner.getInjector() : {
+function setupValues() {
+    options.window = options.window || window;
+    options.rootElement = options.rootElement || $(options.window.document);
+    injector = runner.getInjector && runner.getInjector() || {
         invoke: invoke
     };
     runner.locals.injector = injector;
+}
+
+function init() {
+    setupValues();
     runner.walking = false;
     runner.exit = false;
-    options.window = options.window || window;
-    options.rootElement = options.rootElement || $("body");
     applyInPageMethods();
 }
 
@@ -141,8 +206,8 @@ function step(exports) {
     var steps = [], index = 0, childStep, exit = false, exitMessage = "", targetParentTypes = [ types.SCENARIO, types.ROOT ];
     if (exports.type === types.ROOT) {
         targetParentTypes = [ types.ROOT ];
-    } else if (exports.type === types.SUB_STEP) {
-        targetParentTypes = [ types.STEP, types.SUB_STEP ];
+    } else if (exports.type === types.STEP) {
+        targetParentTypes = [ types.SCENE, types.STEP ];
     }
     while (exports.parent && targetParentTypes.indexOf(exports.parent.type) === -1) {
         exports.parent = exports.parent.parent;
@@ -188,6 +253,7 @@ function step(exports) {
             log("%sCOMPLETE:%s: %s", charPack("	", exports.depth), exports.type, exports.label);
             dispatch(events.STEP_END, exports);
         }
+        if (exports.onComplete) exports.onComplete();
         exports.parent.next();
     }
     function exec(method) {
@@ -235,8 +301,8 @@ function step(exports) {
     function custom(label, method, validate, timeout) {
         method = method || function() {};
         var s = {
-            type: types.SUB_STEP,
-            parentType: types.SUB_STEP,
+            type: types.STEP,
+            parentType: types.STEP,
             repeat: 1,
             label: label || "CUSTOM",
             value: undefined,
@@ -258,8 +324,8 @@ function step(exports) {
     }
     function until(label, validate, timeout) {
         var s = {
-            type: types.SUB_STEP,
-            parentType: types.SUB_STEP,
+            type: types.STEP,
+            parentType: types.STEP,
             repeat: 1,
             label: label || "UNTIL",
             value: undefined,
@@ -285,7 +351,7 @@ function step(exports) {
     }
     exports.id = Math.uuid();
     exports.state = states.DORMANT;
-    exports.type = exports.type || types.SUB_STEP;
+    exports.type = exports.type || types.STEP;
     exports.label = exports.label || "no label";
     exports.timeout = exports.timeout || options.defaultTimeout;
     exports.method = exports.method || function() {};
@@ -313,14 +379,14 @@ step.RUNNING = 1;
 step.COMPLETE = 2;
 
 function create(params) {
-    params.type = params.type || types.SUB_STEP;
+    params.type = params.type || types.STEP;
     params.parent = params.parent || activeStep;
     activeStep.add(step(params));
     return params;
 }
 
 function createElementStep(params, parent) {
-    params.type = types.SUB_STEP;
+    params.type = types.STEP;
     params.parent = parent || activeStep;
     create(params);
     addJQ(params);
@@ -338,7 +404,7 @@ function scenario(label, method) {
 
 function scene(label, method, validate, timeout) {
     create({
-        type: types.STEP,
+        type: types.SCENE,
         parentType: types.SCENARIO,
         label: label,
         method: method,
@@ -350,8 +416,8 @@ function scene(label, method, validate, timeout) {
 function wait(timeout) {
     timeout = timeout || options.interval;
     create({
-        type: types.SUB_STEP,
-        parentType: types.STEP,
+        type: types.STEP,
+        parentType: types.SCENE,
         label: "wait " + timeout + "ms",
         method: null,
         repeat: 1e4,
@@ -364,8 +430,8 @@ function wait(timeout) {
 
 function waitFor(label, fn, timeout) {
     create({
-        type: types.SUB_STEP,
-        parentType: types.STEP,
+        type: types.STEP,
+        parentType: types.SCENE,
         label: "wait for " + label,
         method: null,
         repeat: 1e4,
@@ -376,8 +442,8 @@ function waitFor(label, fn, timeout) {
 
 function waitForNgEvent(event, timeout) {
     var s = {
-        type: types.SUB_STEP,
-        parentType: types.STEP,
+        type: types.STEP,
+        parentType: types.SCENE,
         label: 'wait for "' + event + '" event.',
         repeat: 1e4,
         scope: null,
@@ -476,8 +542,8 @@ function addElementMethods(stepData, index, list, target) {
 function find(selector, timeout, label) {
     var selectorLabel = typeof selector === "function" ? "(custom method)" : selector;
     var s = {
-        type: types.SUB_STEP,
-        parentType: types.STEP,
+        type: types.STEP,
+        parentType: types.SCENE,
         repeat: 1e4,
         label: label || 'find: "' + selectorLabel + '"',
         value: undefined,
@@ -613,8 +679,47 @@ function repeat(method, times) {
     }
 }
 
+function repeatUntil(fn, count, parent, addAfter) {
+    count = count || 0;
+    parent = parent || activeStep;
+    var doneExecuted = false, done = function() {
+        doneExecuted = true;
+    }, params = {
+        type: types.SCENE,
+        parentType: types.SCENARIO,
+        label: "repeatUntil",
+        parent: parent,
+        method: function() {},
+        validate: function() {
+            injector.invoke(fn, exports, $.extend({
+                count: count,
+                done: done
+            }, locals));
+            if (doneExecuted) {
+                params.label = "repeatUntil - END";
+            }
+            return true;
+        },
+        onComplete: function() {
+            if (!doneExecuted) {
+                repeatUntil(fn, count + 1, parent, params);
+            }
+        },
+        timeout: options.interval
+    };
+    params.type = params.type || types.STEP;
+    params.parent = params.parent || activeStep;
+    if (addAfter) {
+        parent.steps.splice(parent.steps.indexOf(addAfter) + 1, 0, step(params));
+    } else {
+        parent.add(step(params));
+    }
+    params.done = done;
+}
+
 runner = {
     getInjector: null,
+    compact: true,
     debug: false,
     config: applyConfig,
     exit: false,
@@ -646,6 +751,8 @@ runner = {
 
 locals.scenario = scenario;
 
+locals.repeatUntil = repeatUntil;
+
 locals.scene = scene;
 
 locals.find = find;
@@ -658,11 +765,14 @@ locals.waitFor = waitFor;
 
 locals.waitForNgEvent = waitForNgEvent;
 
+dispatcher(runner);
+
 exports.runner = runner;
 
 $("body").ready(function() {
     if (runner.options && runner.options.autoStart) {
         if (typeof runner.options.autoStart === "function") {
+            setupValues();
             runner.options.autoStart.apply(runner, []);
         } else {
             setTimeout(runner.run, 1e3);
@@ -682,7 +792,7 @@ function renderer() {
         }
         passed = 0;
         failed = 0;
-        overlay = $('<div class="runner-overlay">' + '<div class="runner-highlight-container"></div>' + '<div class="runner-title">RUNNER ( ' + '<a href="javascript:void(0)" class="runner-close">X</a> ' + '<a href="javascript:void(0)" class="runner-pause">||</a> ' + '<a href="javascript:void(0)" class="runner-next">&#x25B6;|</a> ' + '<a href="javascript:void(0)" class="runner-resume">&#x25B6;</a> ' + ")" + ' <a href="javascript:void(0)" class="runner-complete"></a> ' + "</div>" + '<div class="runner-clear"></div>' + '<div class="runner-content"></div>' + "</div>");
+        overlay = $('<div class="runner-overlay">' + '<div class="runner-highlight-container"></div>' + '<div class="runner-title">RUNNER ( ' + '<a href="javascript:void(0)" class="runner-close">X</a> ' + '<a href="javascript:void(0)" class="runner-pause">||</a> ' + '<a href="javascript:void(0)" class="runner-next">&#x25B6;|</a> ' + '<a href="javascript:void(0)" class="runner-resume">&#x25B6;</a> ' + '<a href="javascript:void(0)" class="runner-details" title="Click to show or hide details.">?</a> ' + ")" + ' <a href="javascript:void(0)" class="runner-complete"></a> ' + "</div>" + '<div class="runner-clear"></div>' + '<div class="runner-scroller">' + '<div class="runner-content' + (runner.compact ? " compact" : "") + '">' + '<div class="runner-content-title-spacer"></div>' + "</div>" + "</div>" + "</div>");
         content = overlay.find(".runner-content");
         overlay.click(killEvent);
         overlay.mousedown(function() {
@@ -747,7 +857,7 @@ function renderer() {
         }
     }
     function isChainStep(step) {
-        return step.type === ux.runner.types.SUB_STEP;
+        return step.type === ux.runner.types.STEP;
     }
     function writeLabel(step, paused) {
         var isChain = isChainStep(step.parent) && isChainStep(step), el = $("#" + step.id);
@@ -758,13 +868,14 @@ function renderer() {
         if (!$("#" + step.id).length) {
             var parentIsChain = isChainStep(step.parent), indent = parentIsChain ? 4 : step.depth * 20, isChain = isChainStep(step);
             if (isChain && lastStep && lastStep.depth >= step.depth && step !== step.parent.steps[0]) {
-                content.append("<br/>");
+                content.append('<div class="runner-break"></div>');
             }
             content.append('<div id="' + step.id + '" class="runner-pending runner-' + step.type + (isChain ? "-chain" : "") + '" style="margin-left: ' + indent + 'px;margin-right: 0px;"></div>');
             writeLabel(step);
         }
     }
     function stepPause(event, step) {
+        showDetails();
         writeLabel(step, true);
         updateHighlight(step.element);
     }
@@ -778,6 +889,7 @@ function renderer() {
     function stepEnd(event, step) {
         var el = $("#" + step.id);
         el.addClass("runner-" + (step.pass ? "pass" : "fail"));
+        el.attr("title", step.label);
         writeLabel(step);
         updateHighlight(step.element);
         scrollToBottom();
@@ -804,10 +916,10 @@ function renderer() {
         } else {
             complete.addClass("passed");
         }
-        complete.html(passed + " steps passed, " + failed + " failed." + (done ? " COMPLETE" : ""));
+        complete.html(passed + " steps passed, " + failed + " failed." + (done ? " complete" : runner.walking ? " paused" : " running"));
     }
     function scrollToBottom() {
-        overlay.scrollTop(content.height());
+        overlay.find(".runner-scroller").scrollTop(content.height());
     }
     function done() {
         scrollToBottom();
@@ -829,31 +941,40 @@ function renderer() {
             ux.runner.pause();
         }
     }
+    function showDetails() {
+        content.removeClass("compact");
+    }
+    function hideDetails() {
+        content.addClass("compact");
+    }
+    function toggleDetails() {
+        return content.hasClass("compact") ? showDetails() : hideDetails();
+    }
     function addBinds() {
-        var re = runner.options.rootElement;
-        re.bind(runner.events.START, start);
-        re.bind(runner.events.STEP_START, stepStart);
-        re.bind(runner.events.STEP_UPDATE, stepUpdate);
-        re.bind(runner.events.STEP_END, stepEnd);
-        re.bind(runner.events.STEP_PAUSE, stepPause);
-        re.bind(runner.events.DONE, done);
+        runner.on(runner.events.START, start);
+        runner.on(runner.events.STEP_START, stepStart);
+        runner.on(runner.events.STEP_UPDATE, stepUpdate);
+        runner.on(runner.events.STEP_END, stepEnd);
+        runner.on(runner.events.STEP_PAUSE, stepPause);
+        runner.on(runner.events.DONE, done);
         $(".runner-close").click(runner.stop);
         $(".runner-pause").click(runner.pause);
         $(".runner-next").click(runner.next);
         $(".runner-resume").click(runner.resume);
+        $(".runner-details").click(toggleDetails);
     }
     function removeBinds() {
-        var re = runner.options.rootElement;
-        re.unbind(runner.events.START, start);
-        re.unbind(runner.events.STEP_START, stepStart);
-        re.unbind(runner.events.STEP_UPDATE, stepUpdate);
-        re.unbind(runner.events.STEP_END, stepEnd);
-        re.unbind(runner.events.STEP_PAUSE, stepPause);
-        re.unbind(runner.events.DONE, done);
+        runner.off(runner.events.START, start);
+        runner.off(runner.events.STEP_START, stepStart);
+        runner.off(runner.events.STEP_UPDATE, stepUpdate);
+        runner.off(runner.events.STEP_END, stepEnd);
+        runner.off(runner.events.STEP_PAUSE, stepPause);
+        runner.off(runner.events.DONE, done);
         $(".runner-close").unbind("click", runner.stop);
         $(".runner-pause").unbind("click", runner.pause);
         $(".runner-next").unbind("click", runner.next);
         $(".runner-resume").unbind("click", runner.resume);
+        $(".runner-details").unbind("click", toggleDetails);
     }
     exports.start = start;
     exports.stepStart = stepStart;
@@ -1402,19 +1523,4 @@ runner.elementMethods.push(function(target) {
         return runner.createElementStep(s, target);
     };
 });
-
-function toArray(obj) {
-    var result = [], i = 0, len = obj.length;
-    while (i < len) {
-        result.push(obj[i]);
-        i += 1;
-    }
-    return result;
-}
-
-exports.util = exports.util || {};
-
-exports.util.array = ux.util.array || {};
-
-exports.util.array.toArray = toArray;
 }(this.ux = this.ux || {}, function() {return this;}()));

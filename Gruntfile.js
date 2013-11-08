@@ -31,11 +31,11 @@ module.exports = function (grunt) {
                 },
                 files: {
                     'build/ux-<%= pkg.filename %>.js': [
+                        'src/lib/*.js',
                         'src/ux-runner.js',
                         'src/renderer.js',
                         'src/actions/*.js',
-                        'src/expects/*.js',
-                        'src/lib/*.js'
+                        'src/expects/*.js'
                     ]
                 }
             },
@@ -59,11 +59,11 @@ module.exports = function (grunt) {
                 },
                 files: {
                     'build/angular-<%= pkg.filename %>.js': [
+                        'src/lib/*.js',
                         'src/ux-runner.js',
                         'src/renderer.js',
                         'src/actions/*.js',
                         'src/expects/*.js',
-                        'src/lib/*.js',
                         'src/frameworks/angular.js',
                     ]
                 }

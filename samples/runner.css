@@ -6,7 +6,7 @@
     height: 100%;
     z-index: 10000;
     font-family: arial;
-    overflow: auto;
+    overflow: hidden;
 }
 
 .runner-highlighter {
@@ -21,6 +21,13 @@
     display: none;
 }
 
+.runner-scroller {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+}
+
 .runner-content {
     position: relative;
     float: left;
@@ -30,8 +37,13 @@
     padding-bottom: 40px;
 }
 
+.runner-content-title-spacer {
+    height: 40px;
+}
+
 .runner-overlay .runner-title {
-    position: relative;
+    position: absolute;
+    z-index: 10001;
     float: left;
     padding: 10px;
     color: #FFFFFF;
@@ -43,12 +55,25 @@
     clear: both;
 }
 
+.compact div {
+    display: inline-block;
+    margin: 1px !important;
+    line-height: 10px;
+    overflow: hidden;
+    cursor: default;
+}
+
 .runner-root {
     font-size: 20px;
     font-weight: bold;
     background-color: rgba(00, 11, 33, 0.5);
     text-indent: 2px;
     border-bottom: 1px solid #000000;
+}
+
+.compact .runner-root {
+    width: 10px;
+    height: 10px;
 }
 
 .runner-scenario {
@@ -59,20 +84,35 @@
     border-bottom: 1px solid #000000;
 }
 
-.runner-step {
+.compact .runner-scenario {
+    width: 8px;
+    height: 8px;
+}
+
+.runner-scene {
     font-size: 14px;
     font-weight: bold;
     background-color: rgba(33, 33, 33, 0.25);
     border-bottom: 1px solid #000000;
 }
 
-.runner-subStep-chain {
+.compact .runner-scene {
+    width: 4px;
+    height: 4px;
+}
+
+.runner-step-chain {
     display: inline-block;
     font-size: 12px;
     font-weight: normal;
     text-indent: 2px;
     background-color: rgba(0, 0, 0, 0.25);
     border-bottom: 1px solid #000000;
+}
+
+.compact .runner-step-chain {
+    width: 2px;
+    height: 2px;
 }
 
 .runner-overlay .runner-pending {
@@ -87,7 +127,19 @@
     color: #c0392b;
 }
 
-.runner-step-count, .runner-timed-out, .runner-step-paused, .runner-close, .runner-pause, .runner-next, .runner-resume, .runner-complete {
+.runner-overlay .compact .runner-pending {
+    background-color: #3498db;
+}
+
+.runner-overlay .compact .runner-pass {
+    background-color: #27ae60;
+}
+
+.runner-overlay .compact .runner-fail {
+    background-color: #c0392b;
+}
+
+.runner-step-count, .runner-timed-out, .runner-step-paused, .runner-close, .runner-pause, .runner-next, .runner-resume, .runner-complete, .runner-details {
     display: inline;
     font-size: 12px;
     background: #000000;
@@ -123,7 +175,7 @@
     font-weight: bold;
 }
 
-.runner-next {
+.runner-next, .runner-details {
     background: #336699;
     color: #FFFFFF;
     text-decoration: none;
@@ -161,4 +213,10 @@
 .runner-complete.paused {
     display: inline;
     background-color: #FF6600;
+}
+
+.runner-break {
+    display: block;
+    width: 0px;
+    height: 1px;
 }

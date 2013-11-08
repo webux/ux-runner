@@ -39,8 +39,8 @@ var module = {},
     types = {
         ROOT: 'root',
         SCENARIO: 'scenario',
-        STEP: 'step',
-        SUB_STEP: 'subStep'
+        SCENE: 'scene',
+        STEP: 'step'
     },
     injector,
     all,
@@ -72,17 +72,21 @@ function dispatch(event) {
     if (runner.dispatcher) {
         runner.dispatcher.dispatch.apply(runner.dispatcher, arguments);
     } else {
-        options.rootElement.trigger.apply(options.rootElement, arguments);
+        runner.dispatch.apply(runner, arguments);
     }
 }
 
-function init() {
-    injector = runner.getInjector ? runner.getInjector() : {invoke: invoke};
+function setupValues() {
+    options.window = options.window || window;
+    options.rootElement = options.rootElement || $(options.window.document);
+    injector = runner.getInjector && runner.getInjector() || {invoke: invoke};
     runner.locals.injector = injector;
+}
+
+function init() {
+    setupValues();
     runner.walking = false;
     runner.exit = false;
-    options.window = options.window || window;
-    options.rootElement = options.rootElement || $("body");
     applyInPageMethods();
 }
 
@@ -152,8 +156,8 @@ function step(exports) {
 
     if (exports.type === types.ROOT) {
         targetParentTypes = [types.ROOT];
-    } else if (exports.type === types.SUB_STEP) {
-        targetParentTypes = [types.STEP, types.SUB_STEP];
+    } else if (exports.type === types.STEP) {
+        targetParentTypes = [types.SCENE, types.STEP];
     }
     while (exports.parent && targetParentTypes.indexOf(exports.parent.type) === -1) {
         exports.parent = exports.parent.parent;
@@ -204,6 +208,7 @@ function step(exports) {
             log("%sCOMPLETE:%s: %s", charPack("\t", exports.depth), exports.type, exports.label);
             dispatch(events.STEP_END, exports);
         }
+        if (exports.onComplete) exports.onComplete();
         exports.parent.next();
     }
 
@@ -257,8 +262,8 @@ function step(exports) {
     function custom(label, method, validate, timeout) {
         method = method || function () {};
         var s = {
-            type: types.SUB_STEP,
-            parentType: types.SUB_STEP,
+            type: types.STEP,
+            parentType: types.STEP,
             repeat: 1,
             label: label || 'CUSTOM',
             value: undefined,
@@ -281,8 +286,8 @@ function step(exports) {
 
     function until(label, validate, timeout) {
         var s = {
-            type: types.SUB_STEP,
-            parentType: types.SUB_STEP,
+            type: types.STEP,
+            parentType: types.STEP,
             repeat: 1,
             label: label || 'UNTIL',
             value: undefined,
@@ -310,7 +315,7 @@ function step(exports) {
 
     exports.id = Math.uuid();
     exports.state = states.DORMANT;
-    exports.type = exports.type || types.SUB_STEP;
+    exports.type = exports.type || types.STEP;
     exports.label = exports.label || "no label";
     exports.timeout = exports.timeout || options.defaultTimeout;
     exports.method = exports.method || function () {};
@@ -336,14 +341,14 @@ step.RUNNING = 1;
 step.COMPLETE = 2;
 
 function create(params) {
-    params.type = params.type || types.SUB_STEP;
+    params.type = params.type || types.STEP;
     params.parent = params.parent || activeStep;
     activeStep.add(step(params));
     return params;
 }
 
 function createElementStep(params, parent) {
-    params.type = types.SUB_STEP;
+    params.type = types.STEP;
     params.parent = parent || activeStep;
     create(params);
     addJQ(params);
@@ -361,7 +366,7 @@ function scenario(label, method) {
 
 function scene(label, method, validate, timeout) {
     create({
-        type: types.STEP,
+        type: types.SCENE,
         parentType: types.SCENARIO,
         label: label,
         method: method,
@@ -373,8 +378,8 @@ function scene(label, method, validate, timeout) {
 function wait(timeout) {
     timeout = timeout || options.interval;
     create({
-        type: types.SUB_STEP,
-        parentType: types.STEP,
+        type: types.STEP,
+        parentType: types.SCENE,
         label: "wait " + timeout + "ms",
         method: null,
         repeat: 10000,
@@ -387,8 +392,8 @@ function wait(timeout) {
 
 function waitFor(label, fn, timeout) {
     create({
-        type: types.SUB_STEP,
-        parentType: types.STEP,
+        type: types.STEP,
+        parentType: types.SCENE,
         label: "wait for " + label,
         method: null,
         repeat: 10000,
@@ -399,8 +404,8 @@ function waitFor(label, fn, timeout) {
 
 function waitForNgEvent(event, timeout) {
     var s = {
-        type: types.SUB_STEP,
-        parentType: types.STEP,
+        type: types.STEP,
+        parentType: types.SCENE,
         label: "wait for \"" + event + "\" event.",
         repeat: 10000,
         scope: null,
@@ -500,8 +505,8 @@ function addElementMethods(stepData, index, list, target) {
 function find(selector, timeout, label) {
     var selectorLabel = (typeof selector === "function" ? "(custom method)" : selector);
     var s = {
-        type: types.SUB_STEP,
-        parentType: types.STEP,
+        type: types.STEP,
+        parentType: types.SCENE,
         repeat: 1e4,
         label: label || 'find: "' + selectorLabel + '"',
         value: undefined,
@@ -631,8 +636,49 @@ function repeat(method, times) {
     }
 }
 
+function repeatUntil(fn, count, parent, addAfter) {
+    // create a step to execute the repeatUntil.
+    count = count || 0;
+    parent = parent || activeStep;
+    var doneExecuted = false,
+        done = function() {
+            doneExecuted = true;
+        },
+        params = {
+            type: types.SCENE,
+            parentType: types.SCENARIO,
+            label: "repeatUntil",
+            parent: parent,
+            method: function () {},
+            validate: function () {
+                // execute the method which may create child steps.
+                injector.invoke(fn, exports, $.extend({count: count, done: done}, locals));
+                if (doneExecuted) {
+                    params.label = "repeatUntil - END";
+                }
+                return true;
+            },
+            onComplete: function () {
+                if (!doneExecuted) {
+                    // until done gets executed. Keep calling.
+                    repeatUntil(fn, count + 1, parent, params);
+                }
+            },
+            timeout: options.interval
+        };
+    params.type = params.type || types.STEP;
+    params.parent = params.parent || activeStep;
+    if (addAfter) {
+        parent.steps.splice(parent.steps.indexOf(addAfter) + 1, 0, step(params));
+    } else {
+        parent.add(step(params));
+    }
+    params.done = done;
+}
+
 runner = {
     getInjector: null,
+    compact: true,
     debug: false,
     config: applyConfig,
     exit: false,
@@ -662,6 +708,7 @@ runner = {
     jqAccessors: ['val', 'text', 'html', 'scrollTop']
 };
 locals.scenario = scenario;
+locals.repeatUntil = repeatUntil;
 locals.scene = scene;
 locals.find = find;
 locals.options = options;
@@ -669,11 +716,13 @@ locals.wait = wait;
 locals.waitFor = waitFor;
 locals.waitForNgEvent = waitForNgEvent;
 
+dispatcher(runner);
 exports.runner = runner;
 
 $('body').ready(function () {
     if (runner.options && runner.options.autoStart) {
         if (typeof runner.options.autoStart === "function") {
+            setupValues();
             runner.options.autoStart.apply(runner, []);
         } else {
             // give it a little time before starting.

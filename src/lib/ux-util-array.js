@@ -8,5 +8,5 @@ function toArray(obj) {
 }
 
 exports.util = exports.util || {};
-exports.util.array = ux.util.array || {};
+exports.util.array = exports.util.array || {};
 exports.util.array.toArray = toArray;

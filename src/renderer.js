@@ -26,11 +26,16 @@ function renderer() {
                     '<a href="javascript:void(0)" class="runner-pause">||</a> ' +
                     '<a href="javascript:void(0)" class="runner-next">&#x25B6;|</a> ' +
                     '<a href="javascript:void(0)" class="runner-resume">&#x25B6;</a> ' +
+                    '<a href="javascript:void(0)" class="runner-details" title="Click to show or hide details.">?</a> ' +
                     ')' +
                     ' <a href="javascript:void(0)" class="runner-complete"></a> ' +
                 '</div>' +
                 '<div class="runner-clear"></div>' +
-                '<div class="runner-content"></div>' +
+                '<div class="runner-scroller">' +
+                    '<div class="runner-content' + (runner.compact ? ' compact' : '') + '">' +
+                        '<div class="runner-content-title-spacer"></div>' +
+                    '</div>' +
+                '</div>' +
             '</div>');
         content = overlay.find('.runner-content');
         overlay.click(killEvent);
@@ -90,7 +95,7 @@ function renderer() {
     }
 
     function isChainStep(step) {
-        return step.type === ux.runner.types.SUB_STEP;//!!(step.parent && step.parent.element);
+        return step.type === ux.runner.types.STEP;//!!(step.parent && step.parent.element);
     }
 
     function writeLabel(step, paused) {
@@ -112,7 +117,7 @@ function renderer() {
                 indent = parentIsChain ? 4 : step.depth * 20,
                 isChain = isChainStep(step);
             if (isChain && lastStep && lastStep.depth >= step.depth && step !== step.parent.steps[0]) {
-                content.append('<br/>');
+                content.append('<div class="runner-break"></div>');
             }
             content.append('<div id="' + step.id + '" class="runner-pending runner-' + step.type + (isChain ? '-chain' : '') + '" style="margin-left: ' + indent + 'px;margin-right: 0px;"></div>');
             writeLabel(step);
@@ -120,6 +125,7 @@ function renderer() {
     }
 
     function stepPause(event, step) {
+        showDetails();
         writeLabel(step, true);
         updateHighlight(step.element);
     }
@@ -135,6 +141,7 @@ function renderer() {
     function stepEnd(event, step) {
         var el = $('#' + step.id);
         el.addClass('runner-' + (step.pass ? 'pass' : 'fail'));
+        el.attr('title', step.label);
         writeLabel(step);
         updateHighlight(step.element);
         scrollToBottom();
@@ -163,11 +170,11 @@ function renderer() {
         } else {
             complete.addClass('passed');
         }
-        complete.html(passed + ' steps passed, ' + failed + ' failed.' + (done ? ' COMPLETE' : ''));
+        complete.html(passed + ' steps passed, ' + failed + ' failed.' + (done ? ' complete' : (runner.walking ? ' paused' : ' running')));
     }
 
     function scrollToBottom() {
-        overlay.scrollTop(content.height());
+        overlay.find('.runner-scroller').scrollTop(content.height());
     }
 
     function done() {
@@ -193,32 +200,44 @@ function renderer() {
         }
     }
 
+    function showDetails() {
+        content.removeClass('compact');
+    }
+
+    function hideDetails() {
+        content.addClass('compact');
+    }
+
+    function toggleDetails() {
+        return content.hasClass('compact') ? showDetails() : hideDetails();
+    }
+
     function addBinds() {
-        var re = runner.options.rootElement;
-        re.bind(runner.events.START, start);
-        re.bind(runner.events.STEP_START, stepStart);
-        re.bind(runner.events.STEP_UPDATE, stepUpdate);
-        re.bind(runner.events.STEP_END, stepEnd);
-        re.bind(runner.events.STEP_PAUSE, stepPause);
-        re.bind(runner.events.DONE, done);
+        runner.on(runner.events.START, start);
+        runner.on(runner.events.STEP_START, stepStart);
+        runner.on(runner.events.STEP_UPDATE, stepUpdate);
+        runner.on(runner.events.STEP_END, stepEnd);
+        runner.on(runner.events.STEP_PAUSE, stepPause);
+        runner.on(runner.events.DONE, done);
         $('.runner-close').click(runner.stop);
         $('.runner-pause').click(runner.pause);
         $('.runner-next').click(runner.next);
         $('.runner-resume').click(runner.resume);
+        $('.runner-details').click(toggleDetails);
     }
 
     function removeBinds() {
-        var re = runner.options.rootElement;
-        re.unbind(runner.events.START, start);
-        re.unbind(runner.events.STEP_START, stepStart);
-        re.unbind(runner.events.STEP_UPDATE, stepUpdate);
-        re.unbind(runner.events.STEP_END, stepEnd);
-        re.unbind(runner.events.STEP_PAUSE, stepPause);
-        re.unbind(runner.events.DONE, done);
+        runner.off(runner.events.START, start);
+        runner.off(runner.events.STEP_START, stepStart);
+        runner.off(runner.events.STEP_UPDATE, stepUpdate);
+        runner.off(runner.events.STEP_END, stepEnd);
+        runner.off(runner.events.STEP_PAUSE, stepPause);
+        runner.off(runner.events.DONE, done);
         $('.runner-close').unbind('click', runner.stop);
         $('.runner-pause').unbind('click', runner.pause);
         $('.runner-next').unbind('click', runner.next);
         $('.runner-resume').unbind('click', runner.resume);
+        $('.runner-details').unbind('click', toggleDetails);
     }
 
     exports.start = start;
