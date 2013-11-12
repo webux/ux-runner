@@ -85,7 +85,7 @@ function renderer() {
     function updateHighlight(el) {
         updateResume();
         updateHighlightContainer();
-        if (el && el.length) {
+        if (el && el.length && el.offset()) {
             var pos = el.offset();
             highlighter.removeClass('runner-highlighter-empty');
             highlighter.css({top: pos.top, left: pos.left, width: el.width(), height: el.height()});

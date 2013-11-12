@@ -7,7 +7,7 @@ runner.elementMethods.push(function (target) {
             method: function () {
             },
             validate: function () {
-                var result = target.value === value;
+                var result = $.trim(target.value) === value;
                 if (!result) {
                     s.label = "expected " + target.value + " to be " + value;
                 } else {

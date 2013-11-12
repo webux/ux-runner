@@ -843,7 +843,7 @@ function renderer() {
     function updateHighlight(el) {
         updateResume();
         updateHighlightContainer();
-        if (el && el.length) {
+        if (el && el.length && el.offset()) {
             var pos = el.offset();
             highlighter.removeClass("runner-highlighter-empty");
             highlighter.css({
@@ -1511,7 +1511,7 @@ runner.elementMethods.push(function(target) {
             timeout: runner.locals.options.interval,
             method: function() {},
             validate: function() {
-                var result = target.value === value;
+                var result = $.trim(target.value) === value;
                 if (!result) {
                     s.label = "expected " + target.value + " to be " + value;
                 } else {
