@@ -4,9 +4,12 @@ function renderer() {
         content,
         isMouseDown = false,
         highlighter,
+        highlightContainer,
+        toolTip,
         lastStep,
         passed,
-        failed;
+        failed,
+        plusMinusIncrement = 10;
 
     function killEvent(event) {
         event.preventDefault();
@@ -20,14 +23,18 @@ function renderer() {
         passed = 0;
         failed = 0;
         overlay = $('<div class="runner-overlay">' +
-                '<div class="runner-highlight-container"></div>' +
-                '<div class="runner-title">RUNNER ( ' +
-                    '<a href="javascript:void(0)" class="runner-close">X</a> ' +
-                    '<a href="javascript:void(0)" class="runner-pause">||</a> ' +
-                    '<a href="javascript:void(0)" class="runner-next">&#x25B6;|</a> ' +
-                    '<a href="javascript:void(0)" class="runner-resume">&#x25B6;</a> ' +
-                    '<a href="javascript:void(0)" class="runner-details" title="Click to show or hide details.">?</a> ' +
-                    ')' +
+                '<div class="runner-title">RUNNER ' +
+                    '<div class="runner-button-bar">' +
+                        '<a href="javascript:void(0)" class="runner-close runner-button" title="Close Runner">X</a> ' +
+                        '<a href="javascript:void(0)" class="runner-restart runner-button" title="Restart last run">&#x21bb;</a> ' +
+                        '<a href="javascript:void(0)" class="runner-pause runner-button" title="Pause Runner">||</a> ' +
+                        '<a href="javascript:void(0)" class="runner-next runner-button" title="Step Forward">&#x25B6;|</a> ' +
+                        '<a href="javascript:void(0)" class="runner-resume runner-button" title="Resume">&#x25B6;</a> ' +
+                        '<span class="runner-interval-label">Speed:</span><input type="text" class="runner-interval" disabled> ' +
+                        '<a href="javascript:void(0)" class="runner-plus runner-button" title="Increase Speed">+</a> ' +
+                        '<a href="javascript:void(0)" class="runner-minus runner-button" title="Decrease Speed">-</a> ' +
+                        '<a href="javascript:void(0)" class="runner-details runner-button" title="Click to show or hide details.">?</a> ' +
+                    '</div>' +
                     ' <a href="javascript:void(0)" class="runner-complete"></a> ' +
                 '</div>' +
                 '<div class="runner-clear"></div>' +
@@ -36,6 +43,7 @@ function renderer() {
                         '<div class="runner-content-title-spacer"></div>' +
                     '</div>' +
                 '</div>' +
+                '<div class="runner-highlight-container"></div>' +
             '</div>');
         content = overlay.find('.runner-content');
         overlay.click(killEvent);
@@ -52,8 +60,11 @@ function renderer() {
         });
 
         highlighter = $('<div class="runner-highlighter"></div>');
+        toolTip = $('<div class="runner-tooltip"><div class="runner-tooltip-arrow"></div><div class="runner-tooltip-content"></div></div>');
         $('body').append(overlay);
-        $('.runner-highlight-container').append(highlighter);
+        highlightContainer = $('.runner-highlight-container');
+        highlightContainer.append(highlighter);
+        highlightContainer.append(toolTip);
         updateHighlightContainer();
         addBinds();
     }
@@ -66,8 +77,12 @@ function renderer() {
         }
     }
 
+    function updateSpeed() {
+        $('.runner-interval').val(ux.runner.options.interval);
+    }
+
     function updateHighlightContainer() {
-        var container = $('.runner-highlight-container'), frame = $('#targetFrame'), data;
+        var frame = $('#targetFrame'), data;
         if (frame.length) {
             if (runner.options.frame) {
                 frame.css(runner.options.frame);
@@ -76,19 +91,23 @@ function renderer() {
             data.position = "absolute";
             data.width = frame.width();
             data.height = frame.height();
-            container.css(data);
+            highlightContainer.css(data);
         } else {
-            container.css({position: "absolute", top: 0, left: 0, width: "100%", height: "100%"});
+            highlightContainer.css({position: "absolute", top: 0, left: 0, width: "100%", height: "100%"});
         }
     }
 
-    function updateHighlight(el) {
+    function updateHighlight(step) {
+        var el = step.element;
         updateResume();
+        updateSpeed();
         updateHighlightContainer();
+        writeLabel(step, false, toolTip.find('.runner-tooltip-content'));
         if (el && el.length && el.offset()) {
             var pos = el.offset();
             highlighter.removeClass('runner-highlighter-empty');
             highlighter.css({top: pos.top, left: pos.left, width: el.width(), height: el.height()});
+            toolTip.css({top: pos.top + el.height(), left: pos.left + el.width() - toolTip.width()});
         } else {
             highlighter.addClass('runner-highlighter-empty');
         }
@@ -98,20 +117,19 @@ function renderer() {
         return step.type === ux.runner.types.STEP;//!!(step.parent && step.parent.element);
     }
 
-    function writeLabel(step, paused) {
-        var isChain = isChainStep(step.parent) && isChainStep(step),
-           el = $('#' + step.id);
+    function writeLabel(step, paused, el) {
+        var isChain = isChainStep(step.parent) && isChainStep(step);
        el.html(
            (isChain && ' - ' || '') +
            '<span class="runner-step-label">' + step.label + '</span>' +
            (step.count > 1 ? ' <span class="runner-step-count" title="repeat count">' + step.count + '</span>' : '') +
            (step.timedOut ? ' <span class="runner-timed-out" title="timeout">timeout</span>' : '') +
-           (paused ? ' <span class="runner-step-paused" title="paused">paused' + (runner.pauseOnFail ? ' on fail' : '') + '</span>' : '')
+           (paused ? ' <span class="runner-step-paused runner-step-paused-' + (step.pass ? 'pass' : 'fail') + '" title="paused">paused' + (runner.pauseOnFail && !step.pass ? ' on fail' : '') + '</span>' : '')
        );
     }
 
     function stepStart(event, step) {
-        updateHighlight(step.element);
+        updateHighlight(step);
         if (!$('#' + step.id).length) {
             var parentIsChain = isChainStep(step.parent),
                 indent = parentIsChain ? 4 : step.depth * 20,
@@ -120,21 +138,21 @@ function renderer() {
                 content.append('<div class="runner-break"></div>');
             }
             content.append('<div id="' + step.id + '" class="runner-pending runner-' + step.type + (isChain ? '-chain' : '') + '" style="margin-left: ' + indent + 'px;margin-right: 0px;"></div>');
-            writeLabel(step);
+            writeLabel(step, false, $('#' + step.id));
         }
     }
 
     function stepPause(event, step) {
         showDetails();
-        writeLabel(step, true);
-        updateHighlight(step.element);
+        writeLabel(step, true, $('#' + step.id));
+        updateHighlight(step);
     }
 
     function stepUpdate(event, step) {
         if (step.count > 1) {
-            writeLabel(step);
+            writeLabel(step, false, $('#' + step.id));
         }
-        updateHighlight(step.element);
+        updateHighlight(step);
         updateComplete();
     }
 
@@ -142,8 +160,8 @@ function renderer() {
         var el = $('#' + step.id);
         el.addClass('runner-' + (step.pass ? 'pass' : 'fail'));
         el.attr('title', step.label);
-        writeLabel(step);
-        updateHighlight(step.element);
+        writeLabel(step, false, $('#' + step.id));
+        updateHighlight(step);
         scrollToBottom();
         lastStep = step;
         updateCounters(step);
@@ -160,15 +178,18 @@ function renderer() {
 
     function updateComplete(done) {
         var complete = $('.runner-complete');
-        complete.removeClass('paused');
         complete.removeClass('passed');
         complete.removeClass('failed');
+        complete.removeClass('passed');
         if (runner.walking) {
             complete.addClass('paused');
         } else if (failed) {
             complete.addClass('failed');
         } else {
             complete.addClass('passed');
+        }
+        if (done) {
+            complete.addClass('done');
         }
         complete.html(passed + ' steps passed, ' + failed + ' failed.' + (done ? ' complete' : (runner.walking ? ' paused' : ' running')));
     }
@@ -188,6 +209,8 @@ function renderer() {
             content = null;
             overlay = null;
             highlighter = null;
+            highlightContainer = null;
+            toolTip = null;
             lastStep = null;
             removeBinds();
         }
@@ -212,6 +235,23 @@ function renderer() {
         return content.hasClass('compact') ? showDetails() : hideDetails();
     }
 
+    function plus() {
+        ux.runner.options.interval += plusMinusIncrement;
+    }
+
+    function minus() {
+        ux.runner.options.interval -= plusMinusIncrement;
+        if (ux.runner.options.interval < plusMinusIncrement) {
+            ux.runner.options.interval = plusMinusIncrement;
+        }
+    }
+
+    function restart() {
+        stop();
+        ux.runner.pause();
+        ux.runner.restart();
+    }
+
     function addBinds() {
         runner.on(runner.events.START, start);
         runner.on(runner.events.STEP_START, stepStart);
@@ -220,10 +260,13 @@ function renderer() {
         runner.on(runner.events.STEP_PAUSE, stepPause);
         runner.on(runner.events.DONE, done);
         $('.runner-close').click(runner.stop);
+        $('.runner-restart').click(restart);
         $('.runner-pause').click(runner.pause);
         $('.runner-next').click(runner.next);
         $('.runner-resume').click(runner.resume);
         $('.runner-details').click(toggleDetails);
+        $('.runner-plus').click(plus);
+        $('.runner-minus').click(minus);
     }
 
     function removeBinds() {
@@ -234,10 +277,13 @@ function renderer() {
         runner.off(runner.events.STEP_PAUSE, stepPause);
         runner.off(runner.events.DONE, done);
         $('.runner-close').unbind('click', runner.stop);
+        $('.runner-restart').unbind('click', restart);
         $('.runner-pause').unbind('click', runner.pause);
         $('.runner-next').unbind('click', runner.next);
         $('.runner-resume').unbind('click', runner.resume);
         $('.runner-details').unbind('click', toggleDetails);
+        $('.runner-plus').unbind('click', plus);
+        $('.runner-minus').unbind('click', minus);
     }
 
     exports.start = start;

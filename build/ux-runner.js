@@ -98,7 +98,7 @@ var module = {}, runner, locals = {}, events = {
     SCENARIO: "scenario",
     SCENE: "scene",
     STEP: "step"
-}, injector, all, activeStep, intv, scenarios = [], walkStep = null;
+}, injector, all, activeStep, intv, scenarios = [], walkStep = null, describeOnly = false, descriptions = [], lastStartArguments = [];
 
 if (!Math.uuid) {
     var c = 0;
@@ -271,8 +271,25 @@ function step(exports) {
             exports.pass = false;
             exports.repeat = 0;
         } else {
-            exec(exports.method);
-            exports.pass = validate(exports.validate);
+            if (describeOnly) {
+                descriptions.push({
+                    label: exports.label,
+                    type: exports.type
+                });
+                exports.repeat = 0;
+            }
+            if (describeOnly && (exports.type === types.STEP || exports.type === types.SCENE)) {
+                exports.pass = true;
+            } else {
+                try {
+                    exec(exports.method);
+                    exports.pass = describeOnly ? true : validate(exports.validate);
+                } catch (e) {
+                    exports.pass = describeOnly || false;
+                    exports.label += " ERROR: " + e.message;
+                    console.error(e.message);
+                }
+            }
         }
         exports.count += 1;
         exports.timedOut = !hasTimeLeft(exports);
@@ -413,6 +430,16 @@ function scene(label, method, validate, timeout) {
     });
 }
 
+function assert(label, validate) {
+    create({
+        type: types.SCENE,
+        parentType: types.SCENARIO,
+        label: label,
+        method: function() {},
+        validate: validate
+    });
+}
+
 function wait(timeout) {
     timeout = timeout || options.interval;
     create({
@@ -541,11 +568,12 @@ function addElementMethods(stepData, index, list, target) {
 
 function find(selector, timeout, label) {
     var selectorLabel = typeof selector === "function" ? "(custom method)" : selector;
+    label = label || 'find: "' + selectorLabel + '"';
     var s = {
         type: types.STEP,
         parentType: types.SCENE,
         repeat: 1e4,
-        label: label || 'find: "' + selectorLabel + '"',
+        label: label,
         value: undefined,
         method: function() {
             s.value = s.element = options.rootElement.find(typeof selector === "function" ? s.exec(selector) : selector);
@@ -553,7 +581,7 @@ function find(selector, timeout, label) {
         },
         validate: function() {
             var result = !!s.value.length;
-            s.label = result ? s.label : "could not find" + ' "' + selectorLabel + '"';
+            s.label = result ? label : "could not find" + ' "' + selectorLabel + '"';
             return result;
         },
         timeout: timeout
@@ -637,9 +665,10 @@ function runAll() {
 }
 
 function run(scenarioName) {
+    lastStartArguments = arguments;
     if (runner.stop) runner.stop();
     init();
-    if (runner.onStart) runner.onStart();
+    if (!describeOnly && runner.onStart) runner.onStart();
     dispatch(events.START);
     log("run");
     setup();
@@ -649,6 +678,10 @@ function run(scenarioName) {
         runAll();
     }
     activeStep.run();
+}
+
+function restart() {
+    run.apply(this, lastStartArguments);
 }
 
 function walk(scenarioName) {
@@ -691,16 +724,19 @@ function repeatUntil(fn, count, parent, addAfter) {
         parent: parent,
         method: function() {},
         validate: function() {
-            injector.invoke(fn, exports, $.extend({
+            injector.invoke(fn, params, $.extend({
                 count: count,
                 done: done
             }, locals));
-            if (doneExecuted) {
+            if (doneExecuted && params.label === "repeatUntil") {
                 params.label = "repeatUntil - END";
             }
-            return true;
+            return params.pass !== undefined ? params.pass : true;
         },
         onComplete: function() {
+            if (describeOnly) {
+                doneExecuted = true;
+            }
             if (!doneExecuted) {
                 repeatUntil(fn, count + 1, parent, params);
             }
@@ -717,12 +753,44 @@ function repeatUntil(fn, count, parent, addAfter) {
     params.done = done;
 }
 
+function describeScenario(scenarioName) {
+    var async = options.async;
+    descriptions = [];
+    describeOnly = true;
+    options.async = false;
+    run(scenarioName);
+    describeOnly = false;
+    options.async = async;
+    return descriptions;
+}
+
+function describeScenarios(callback) {
+    var result = [];
+    describeTheRest(scenarios.slice(0), result, callback);
+    return result;
+}
+
+function describeTheRest(remaining, result, callback) {
+    var desc = describeScenario(remaining.shift());
+    desc.shift();
+    each(desc, function(item) {
+        result.push(item);
+    });
+    if (remaining.length) {
+        setTimeout(describeTheRest, 0, remaining, result, callback);
+    }
+    if (callback) {
+        callback(result, remaining.length);
+    }
+}
+
 runner = {
     getInjector: null,
     compact: true,
     debug: false,
     config: applyConfig,
     exit: false,
+    restart: restart,
     run: run,
     walk: walk,
     walking: false,
@@ -733,6 +801,8 @@ runner = {
     addScenario: addScenario,
     clearScenarios: clearScenarios,
     getScenarioNames: getScenarioNames,
+    describeScenario: describeScenario,
+    describeScenarios: describeScenarios,
     types: types,
     events: events,
     states: states,
@@ -745,7 +815,7 @@ runner = {
     each: each,
     repeat: repeat,
     inPageMethods: [],
-    jqMethods: [ "focus", "blur", "click", "mousedown", "mouseover", "mouseup", "select", "touchstart", "touchend", "trigger" ],
+    jqMethods: [ "focus", "blur", "click", "mousedown", "mouseover", "mouseup", "select", "touchstart", "touchend", "trigger", "hasClass" ],
     jqAccessors: [ "val", "text", "html", "scrollTop" ]
 };
 
@@ -754,6 +824,8 @@ locals.scenario = scenario;
 locals.repeatUntil = repeatUntil;
 
 locals.scene = scene;
+
+locals.assert = assert;
 
 locals.find = find;
 
@@ -781,7 +853,7 @@ $("body").ready(function() {
 });
 
 function renderer() {
-    var exports = {}, overlay, content, isMouseDown = false, highlighter, lastStep, passed, failed;
+    var exports = {}, overlay, content, isMouseDown = false, highlighter, highlightContainer, toolTip, lastStep, passed, failed, plusMinusIncrement = 10;
     function killEvent(event) {
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -792,7 +864,7 @@ function renderer() {
         }
         passed = 0;
         failed = 0;
-        overlay = $('<div class="runner-overlay">' + '<div class="runner-highlight-container"></div>' + '<div class="runner-title">RUNNER ( ' + '<a href="javascript:void(0)" class="runner-close">X</a> ' + '<a href="javascript:void(0)" class="runner-pause">||</a> ' + '<a href="javascript:void(0)" class="runner-next">&#x25B6;|</a> ' + '<a href="javascript:void(0)" class="runner-resume">&#x25B6;</a> ' + '<a href="javascript:void(0)" class="runner-details" title="Click to show or hide details.">?</a> ' + ")" + ' <a href="javascript:void(0)" class="runner-complete"></a> ' + "</div>" + '<div class="runner-clear"></div>' + '<div class="runner-scroller">' + '<div class="runner-content' + (runner.compact ? " compact" : "") + '">' + '<div class="runner-content-title-spacer"></div>' + "</div>" + "</div>" + "</div>");
+        overlay = $('<div class="runner-overlay">' + '<div class="runner-title">RUNNER ' + '<div class="runner-button-bar">' + '<a href="javascript:void(0)" class="runner-close runner-button" title="Close Runner">X</a> ' + '<a href="javascript:void(0)" class="runner-restart runner-button" title="Restart last run">&#x21bb;</a> ' + '<a href="javascript:void(0)" class="runner-pause runner-button" title="Pause Runner">||</a> ' + '<a href="javascript:void(0)" class="runner-next runner-button" title="Step Forward">&#x25B6;|</a> ' + '<a href="javascript:void(0)" class="runner-resume runner-button" title="Resume">&#x25B6;</a> ' + '<span class="runner-interval-label">Speed:</span><input type="text" class="runner-interval" disabled> ' + '<a href="javascript:void(0)" class="runner-plus runner-button" title="Increase Speed">+</a> ' + '<a href="javascript:void(0)" class="runner-minus runner-button" title="Decrease Speed">-</a> ' + '<a href="javascript:void(0)" class="runner-details runner-button" title="Click to show or hide details.">?</a> ' + "</div>" + ' <a href="javascript:void(0)" class="runner-complete"></a> ' + "</div>" + '<div class="runner-clear"></div>' + '<div class="runner-scroller">' + '<div class="runner-content' + (runner.compact ? " compact" : "") + '">' + '<div class="runner-content-title-spacer"></div>' + "</div>" + "</div>" + '<div class="runner-highlight-container"></div>' + "</div>");
         content = overlay.find(".runner-content");
         overlay.click(killEvent);
         overlay.mousedown(function() {
@@ -807,8 +879,11 @@ function renderer() {
             }
         });
         highlighter = $('<div class="runner-highlighter"></div>');
+        toolTip = $('<div class="runner-tooltip"><div class="runner-tooltip-arrow"></div><div class="runner-tooltip-content"></div></div>');
         $("body").append(overlay);
-        $(".runner-highlight-container").append(highlighter);
+        highlightContainer = $(".runner-highlight-container");
+        highlightContainer.append(highlighter);
+        highlightContainer.append(toolTip);
         updateHighlightContainer();
         addBinds();
     }
@@ -819,8 +894,11 @@ function renderer() {
             $(".runner-resume").removeClass("paused").addClass("unpaused");
         }
     }
+    function updateSpeed() {
+        $(".runner-interval").val(ux.runner.options.interval);
+    }
     function updateHighlightContainer() {
-        var container = $(".runner-highlight-container"), frame = $("#targetFrame"), data;
+        var frame = $("#targetFrame"), data;
         if (frame.length) {
             if (runner.options.frame) {
                 frame.css(runner.options.frame);
@@ -829,9 +907,9 @@ function renderer() {
             data.position = "absolute";
             data.width = frame.width();
             data.height = frame.height();
-            container.css(data);
+            highlightContainer.css(data);
         } else {
-            container.css({
+            highlightContainer.css({
                 position: "absolute",
                 top: 0,
                 left: 0,
@@ -840,9 +918,12 @@ function renderer() {
             });
         }
     }
-    function updateHighlight(el) {
+    function updateHighlight(step) {
+        var el = step.element;
         updateResume();
+        updateSpeed();
         updateHighlightContainer();
+        writeLabel(step, false, toolTip.find(".runner-tooltip-content"));
         if (el && el.length && el.offset()) {
             var pos = el.offset();
             highlighter.removeClass("runner-highlighter-empty");
@@ -852,6 +933,10 @@ function renderer() {
                 width: el.width(),
                 height: el.height()
             });
+            toolTip.css({
+                top: pos.top + el.height(),
+                left: pos.left + el.width() - toolTip.width()
+            });
         } else {
             highlighter.addClass("runner-highlighter-empty");
         }
@@ -859,39 +944,39 @@ function renderer() {
     function isChainStep(step) {
         return step.type === ux.runner.types.STEP;
     }
-    function writeLabel(step, paused) {
-        var isChain = isChainStep(step.parent) && isChainStep(step), el = $("#" + step.id);
-        el.html((isChain && " - " || "") + '<span class="runner-step-label">' + step.label + "</span>" + (step.count > 1 ? ' <span class="runner-step-count" title="repeat count">' + step.count + "</span>" : "") + (step.timedOut ? ' <span class="runner-timed-out" title="timeout">timeout</span>' : "") + (paused ? ' <span class="runner-step-paused" title="paused">paused' + (runner.pauseOnFail ? " on fail" : "") + "</span>" : ""));
+    function writeLabel(step, paused, el) {
+        var isChain = isChainStep(step.parent) && isChainStep(step);
+        el.html((isChain && " - " || "") + '<span class="runner-step-label">' + step.label + "</span>" + (step.count > 1 ? ' <span class="runner-step-count" title="repeat count">' + step.count + "</span>" : "") + (step.timedOut ? ' <span class="runner-timed-out" title="timeout">timeout</span>' : "") + (paused ? ' <span class="runner-step-paused runner-step-paused-' + (step.pass ? "pass" : "fail") + '" title="paused">paused' + (runner.pauseOnFail && !step.pass ? " on fail" : "") + "</span>" : ""));
     }
     function stepStart(event, step) {
-        updateHighlight(step.element);
+        updateHighlight(step);
         if (!$("#" + step.id).length) {
             var parentIsChain = isChainStep(step.parent), indent = parentIsChain ? 4 : step.depth * 20, isChain = isChainStep(step);
             if (isChain && lastStep && lastStep.depth >= step.depth && step !== step.parent.steps[0]) {
                 content.append('<div class="runner-break"></div>');
             }
             content.append('<div id="' + step.id + '" class="runner-pending runner-' + step.type + (isChain ? "-chain" : "") + '" style="margin-left: ' + indent + 'px;margin-right: 0px;"></div>');
-            writeLabel(step);
+            writeLabel(step, false, $("#" + step.id));
         }
     }
     function stepPause(event, step) {
         showDetails();
-        writeLabel(step, true);
-        updateHighlight(step.element);
+        writeLabel(step, true, $("#" + step.id));
+        updateHighlight(step);
     }
     function stepUpdate(event, step) {
         if (step.count > 1) {
-            writeLabel(step);
+            writeLabel(step, false, $("#" + step.id));
         }
-        updateHighlight(step.element);
+        updateHighlight(step);
         updateComplete();
     }
     function stepEnd(event, step) {
         var el = $("#" + step.id);
         el.addClass("runner-" + (step.pass ? "pass" : "fail"));
         el.attr("title", step.label);
-        writeLabel(step);
-        updateHighlight(step.element);
+        writeLabel(step, false, $("#" + step.id));
+        updateHighlight(step);
         scrollToBottom();
         lastStep = step;
         updateCounters(step);
@@ -906,15 +991,18 @@ function renderer() {
     }
     function updateComplete(done) {
         var complete = $(".runner-complete");
-        complete.removeClass("paused");
         complete.removeClass("passed");
         complete.removeClass("failed");
+        complete.removeClass("passed");
         if (runner.walking) {
             complete.addClass("paused");
         } else if (failed) {
             complete.addClass("failed");
         } else {
             complete.addClass("passed");
+        }
+        if (done) {
+            complete.addClass("done");
         }
         complete.html(passed + " steps passed, " + failed + " failed." + (done ? " complete" : runner.walking ? " paused" : " running"));
     }
@@ -931,6 +1019,8 @@ function renderer() {
             content = null;
             overlay = null;
             highlighter = null;
+            highlightContainer = null;
+            toolTip = null;
             lastStep = null;
             removeBinds();
         }
@@ -950,6 +1040,20 @@ function renderer() {
     function toggleDetails() {
         return content.hasClass("compact") ? showDetails() : hideDetails();
     }
+    function plus() {
+        ux.runner.options.interval += plusMinusIncrement;
+    }
+    function minus() {
+        ux.runner.options.interval -= plusMinusIncrement;
+        if (ux.runner.options.interval < plusMinusIncrement) {
+            ux.runner.options.interval = plusMinusIncrement;
+        }
+    }
+    function restart() {
+        stop();
+        ux.runner.pause();
+        ux.runner.restart();
+    }
     function addBinds() {
         runner.on(runner.events.START, start);
         runner.on(runner.events.STEP_START, stepStart);
@@ -958,10 +1062,13 @@ function renderer() {
         runner.on(runner.events.STEP_PAUSE, stepPause);
         runner.on(runner.events.DONE, done);
         $(".runner-close").click(runner.stop);
+        $(".runner-restart").click(restart);
         $(".runner-pause").click(runner.pause);
         $(".runner-next").click(runner.next);
         $(".runner-resume").click(runner.resume);
         $(".runner-details").click(toggleDetails);
+        $(".runner-plus").click(plus);
+        $(".runner-minus").click(minus);
     }
     function removeBinds() {
         runner.off(runner.events.START, start);
@@ -971,10 +1078,13 @@ function renderer() {
         runner.off(runner.events.STEP_PAUSE, stepPause);
         runner.off(runner.events.DONE, done);
         $(".runner-close").unbind("click", runner.stop);
+        $(".runner-restart").unbind("click", restart);
         $(".runner-pause").unbind("click", runner.pause);
         $(".runner-next").unbind("click", runner.next);
         $(".runner-resume").unbind("click", runner.resume);
         $(".runner-details").unbind("click", toggleDetails);
+        $(".runner-plus").unbind("click", plus);
+        $(".runner-minus").unbind("click", minus);
     }
     exports.start = start;
     exports.stepStart = stepStart;
@@ -1185,6 +1295,7 @@ proto.punch = function(char, options) {
             if (ngModel = el.data("$ngModelController")) {
                 ngModel.$setViewValue(el.val());
             }
+            this.dispatchEvent(el[0], "change", this.createEvent("change", {}));
             if (!scope.$$phase) {
                 scope.$apply();
             }
@@ -1338,21 +1449,26 @@ proto.createEvent = function(type, options) {
         charCode: 0
     }, options);
     if ($.isFunction(document.createEvent)) {
-        try {
-            evt = document.createEvent("KeyEvents");
-            evt.initKeyEvent(type, e.bubbles, e.cancelable, e.view, e.ctrlKey, e.altKey, e.shiftKey, e.metaKey, e.keyCode, e.charCode);
-        } catch (err) {
-            evt = document.createEvent("Events");
-            evt.initEvent(type, e.bubbles, e.cancelable);
-            $.extend(evt, {
-                view: e.view,
-                ctrlKey: e.ctrlKey,
-                altKey: e.altKey,
-                shiftKey: e.shiftKey,
-                metaKey: e.metaKey,
-                keyCode: e.keyCode,
-                charCode: e.charCode
-            });
+        if (type.indexOf("key") !== -1) {
+            try {
+                evt = document.createEvent("KeyEvents");
+                evt.initKeyEvent(type, e.bubbles, e.cancelable, e.view, e.ctrlKey, e.altKey, e.shiftKey, e.metaKey, e.keyCode, e.charCode);
+            } catch (err) {
+                evt = document.createEvent("Events");
+                evt.initEvent(type, e.bubbles, e.cancelable);
+                $.extend(evt, {
+                    view: e.view,
+                    ctrlKey: e.ctrlKey,
+                    altKey: e.altKey,
+                    shiftKey: e.shiftKey,
+                    metaKey: e.metaKey,
+                    keyCode: e.keyCode,
+                    charCode: e.charCode
+                });
+            }
+        } else {
+            evt = document.createEvent("HTMLEvents");
+            evt.initEvent(type, false, true);
         }
     } else if (document.createEventObject) {
         evt = document.createEventObject();

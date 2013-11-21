@@ -11,13 +11,22 @@
     <script src="../../test/e2e/scenarios.js"></script>
     <script>
 
+        function setupFrame() {
+            var win = $('#targetFrame')[0].contentWindow,
+                angularRoot = win.angular.element(win.document);
+            ux.runner.options.window = win;
+            ux.runner.options.rootElement = angularRoot;
+        }
+
+        function getDescriptions() {
+            setupFrame();
+            console.log(ux.runner.describeScenarios());
+        }
+
         ux.runner.config({
             autoStart: function () {
                 setTimeout(function () {
-                    var win = $('#targetFrame')[0].contentWindow,
-                        angularRoot = win.angular.element(win.document);
-                    ux.runner.options.window = win;
-                    ux.runner.options.rootElement = angularRoot;
+                    setupFrame();
                     ux.runner.run();
                 }, 1000);
             },
@@ -39,6 +48,6 @@
     </script>
 </head>
 <body>
-    <iframe id="targetFrame" src="inFrame.html"></iframe>
+    <iframe id="targetFrame" src="inFrame.html" onload="getDescriptions()"></iframe>
 </body>
 </html>

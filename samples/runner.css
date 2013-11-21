@@ -9,6 +9,10 @@
     overflow: hidden;
 }
 
+.runner-highlight-container {
+    pointer-events: none;
+}
+
 .runner-highlighter {
     z-index: 10001;
     border: 4px solid #FF0000;
@@ -19,6 +23,29 @@
 
 .runner-highlighter-empty {
     display: none;
+}
+
+.runner-tooltip {
+    position: absolute;
+    display: inline-block;
+    font-size: 12px;
+    background: #3498db;
+    padding: 4px;
+    border-radius: 12px;
+    color: #FFFFFF;
+    line-height: 12px;
+    margin-top: 10px;
+}
+.runner-tooltip-arrow {
+    position: absolute;
+    border: 10px transparent solid;
+    border-bottom-color: #3498db;
+    width: 0px;
+    height: 0px;
+    margin: auto;
+    margin-top: -20px;
+    left: 0px;
+    right: 0px;
 }
 
 .runner-scroller {
@@ -45,10 +72,10 @@
     position: absolute;
     z-index: 10001;
     float: left;
-    padding: 10px;
     color: #FFFFFF;
     background-color: rgba(0, 0, 0, 0.75);
     width: auto;
+    vertical-align: middle;
 }
 
 .runner-clear {
@@ -139,8 +166,18 @@
     background-color: #c0392b;
 }
 
-.runner-step-count, .runner-timed-out, .runner-step-paused, .runner-close, .runner-pause, .runner-next, .runner-resume, .runner-complete, .runner-details {
-    display: inline;
+.runner-button-bar {
+    display: inline-block;
+    border: 1px solid #666666;
+    vertical-align: middle;
+    padding: 4px;
+    line-height: 16px;
+    background-color: rgba(50, 100, 150, 0.5);
+    border-radius: 6px;
+}
+
+.runner-step-count, .runner-timed-out, .runner-step-paused, .runner-close, .runner-pause, .runner-next, .runner-resume, .runner-complete, .runner-details, .runner-plus, .runner-minus, .runner-restart {
+    display: inline-block;
     font-size: 12px;
     background: #000000;
     padding: 2px;
@@ -152,6 +189,16 @@
     line-height: 12px;
 }
 
+.runner-button {
+    width: 14px;
+    height: 14px;
+    font-weight: bold;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 14;
+    padding: 2px;
+}
+
 .runner-timed-out {
     background-color: #FFFFFF;
     color: #FF0000;
@@ -160,6 +207,14 @@
 .runner-step-paused {
     background-color: #FF6600;
     color: #FFFFFF;
+}
+
+.runner-step-paused-pass {
+    background-color: #FF6600;
+}
+
+.runner-step-paused-fail {
+    background-color: #FF0000;
 }
 
 .runner-close {
@@ -175,7 +230,7 @@
     font-weight: bold;
 }
 
-.runner-next, .runner-details {
+.runner-next, .runner-details, .runner-plus, .runner-minus, .runner-restart {
     background: #336699;
     color: #FFFFFF;
     text-decoration: none;
@@ -202,12 +257,12 @@
 
 .runner-complete.passed {
     display: inline;
-    background-color: #33CC33;
+    background-color: #006600;
 }
 
 .runner-complete.failed {
     display: inline;
-    background-color: #FF0000;
+    background-color: #990000;
 }
 
 .runner-complete.paused {
@@ -215,8 +270,31 @@
     background-color: #FF6600;
 }
 
+.runner-complete.passed.done {
+    background-color: #33CC33;
+}
+
+.runner-complete.failed.done {
+    background-color: #FF0000;
+}
+
 .runner-break {
     display: block;
     width: 0px;
     height: 1px;
+}
+
+.runner-interval-label {
+    font-size: 12px;
+}
+
+.runner-interval {
+    display: inline-block;
+    font-size: 12px;
+    width: 30px;
+    line-height: 12px;
+    text-align: right;
+    color: #FFFFFF;
+    background-color: rgba(0, 0, 0, 0.5);
+    border: 1px solid #666666;
 }

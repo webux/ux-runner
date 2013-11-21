@@ -35,7 +35,7 @@
                         return this.value && this.value.length >= 10;
                     }, options.timeouts.medium);
                 });
-            })
+            });
         });
     }
 

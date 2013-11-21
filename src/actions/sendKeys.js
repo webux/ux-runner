@@ -136,6 +136,7 @@ proto.punch = function (char, options) {
             if ((ngModel = el.data('$ngModelController'))) {
                 ngModel.$setViewValue(el.val());
             }
+            this.dispatchEvent(el[0], 'change', this.createEvent('change', {}));
             // TODO: Break out AngularJS
             if (!scope.$$phase) {
                 scope.$apply();
@@ -287,18 +288,23 @@ proto.createEvent = function (type, options) {
     }, options);
 
     if ($.isFunction(document.createEvent)) {
-        try {
-            evt = document.createEvent("KeyEvents");
-            evt.initKeyEvent(type, e.bubbles, e.cancelable, e.view,
-                e.ctrlKey, e.altKey, e.shiftKey, e.metaKey,
-                e.keyCode, e.charCode);
-        } catch (err) {
-            evt = document.createEvent("Events");
-            evt.initEvent(type, e.bubbles, e.cancelable);
-            $.extend(evt, { view: e.view,
-                ctrlKey: e.ctrlKey, altKey: e.altKey, shiftKey: e.shiftKey, metaKey: e.metaKey,
-                keyCode: e.keyCode, charCode: e.charCode
-            });
+        if (type.indexOf('key') !== -1) {
+            try {
+                evt = document.createEvent("KeyEvents");
+                evt.initKeyEvent(type, e.bubbles, e.cancelable, e.view,
+                    e.ctrlKey, e.altKey, e.shiftKey, e.metaKey,
+                    e.keyCode, e.charCode);
+            } catch (err) {
+                evt = document.createEvent("Events");
+                evt.initEvent(type, e.bubbles, e.cancelable);
+                $.extend(evt, { view: e.view,
+                    ctrlKey: e.ctrlKey, altKey: e.altKey, shiftKey: e.shiftKey, metaKey: e.metaKey,
+                    keyCode: e.keyCode, charCode: e.charCode
+                });
+            }
+        } else { // create a regular event.
+            evt = document.createEvent('HTMLEvents');
+            evt.initEvent(type, false, true);
         }
     } else if (document.createEventObject) {
         evt = document.createEventObject();

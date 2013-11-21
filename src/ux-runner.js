@@ -47,7 +47,10 @@ var module = {},
     activeStep,
     intv,
     scenarios = [],
-    walkStep = null;
+    walkStep = null,
+    describeOnly = false,
+    descriptions = [],
+    lastStartArguments = [];
 
 if (!Math.uuid) {
     var c = 0;
@@ -229,8 +232,23 @@ function step(exports) {
             exports.pass = false;
             exports.repeat = 0;
         } else {
-            exec(exports.method);
-            exports.pass = validate(exports.validate);
+            if (describeOnly) {
+                descriptions.push({label: exports.label, type: exports.type});
+                exports.repeat = 0;
+            }
+            // describe only is used to gather labels of everything scene up to describe the test.
+            if (describeOnly && (exports.type === types.STEP || exports.type === types.SCENE)) {
+                exports.pass = true;
+            } else {
+                try {
+                    exec(exports.method);
+                    exports.pass = describeOnly ? true : validate(exports.validate);
+                } catch (e) {
+                    exports.pass = describeOnly || false;
+                    exports.label += ' ERROR: ' + e.message;
+                    console.error(e.message);
+                }
+            }
         }
         exports.count += 1;
         exports.timedOut = !hasTimeLeft(exports);
@@ -375,6 +393,21 @@ function scene(label, method, validate, timeout) {
     });
 }
 
+/**
+ * Assert is required to return a true or false.
+ * @param label
+ * @param validate
+ */
+function assert(label, validate) {
+    create({
+        type: types.SCENE,
+        parentType: types.SCENARIO,
+        label: label,
+        method: function () {},
+        validate: validate
+    });
+}
+
 function wait(timeout) {
     timeout = timeout || options.interval;
     create({
@@ -504,11 +537,12 @@ function addElementMethods(stepData, index, list, target) {
 
 function find(selector, timeout, label) {
     var selectorLabel = (typeof selector === "function" ? "(custom method)" : selector);
+    label = label || 'find: "' + selectorLabel + '"';
     var s = {
         type: types.STEP,
         parentType: types.SCENE,
         repeat: 1e4,
-        label: label || 'find: "' + selectorLabel + '"',
+        label: label,
         value: undefined,
         method: function() {
             s.value = s.element = options.rootElement.find(typeof selector === "function" ? s.exec(selector) : selector);
@@ -516,7 +550,7 @@ function find(selector, timeout, label) {
         },
         validate: function() {
             var result = !!s.value.length;
-            s.label = result ? s.label : "could not find" + ' "' + selectorLabel + '"';
+            s.label = result ? label : "could not find" + ' "' + selectorLabel + '"';
             return result;
         },
         timeout: timeout
@@ -594,9 +628,10 @@ function runAll() {
 }
 
 function run(scenarioName) {
+    lastStartArguments = arguments;
     if (runner.stop) runner.stop();
     init();
-    if (runner.onStart) runner.onStart();
+    if (!describeOnly && runner.onStart) runner.onStart();
     dispatch(events.START);
     log("run");
     setup();
@@ -606,6 +641,10 @@ function run(scenarioName) {
         runAll();
     }
     activeStep.run();
+}
+
+function restart() {
+    run.apply(this, lastStartArguments);
 }
 
 function walk(scenarioName) {
@@ -652,13 +691,16 @@ function repeatUntil(fn, count, parent, addAfter) {
             method: function () {},
             validate: function () {
                 // execute the method which may create child steps.
-                injector.invoke(fn, exports, $.extend({count: count, done: done}, locals));
-                if (doneExecuted) {
+                injector.invoke(fn, params, $.extend({count: count, done: done}, locals));
+                if (doneExecuted && params.label === "repeatUntil") {
                     params.label = "repeatUntil - END";
                 }
-                return true;
+                return params.pass !== undefined ? params.pass : true;
             },
             onComplete: function () {
+                if (describeOnly) {
+                    doneExecuted = true;
+                }
                 if (!doneExecuted) {
                     // until done gets executed. Keep calling.
                     repeatUntil(fn, count + 1, parent, params);
@@ -676,12 +718,44 @@ function repeatUntil(fn, count, parent, addAfter) {
     params.done = done;
 }
 
+function describeScenario(scenarioName) {
+    var async = options.async;
+    descriptions = [];
+    describeOnly = true;
+    options.async = false;
+    run(scenarioName);
+    describeOnly = false;
+    options.async = async;
+    return descriptions;
+}
+
+function describeScenarios(callback) {
+    var result = [];
+    describeTheRest(scenarios.slice(0), result, callback);
+    return result;
+}
+
+function describeTheRest(remaining, result, callback) {
+    var desc = describeScenario(remaining.shift());
+    desc.shift();
+    each(desc, function (item) {
+        result.push(item);
+    });
+    if (remaining.length) {
+        setTimeout(describeTheRest, 0, remaining, result, callback);
+    }
+    if (callback) {
+        callback(result, remaining.length);
+    }
+}
+
 runner = {
     getInjector: null,
     compact: true,
     debug: false,
     config: applyConfig,
     exit: false,
+    restart: restart,
     run: run,
     walk: walk,
     walking: false,
@@ -692,6 +766,8 @@ runner = {
     addScenario: addScenario,
     clearScenarios: clearScenarios,
     getScenarioNames: getScenarioNames,
+    describeScenario: describeScenario,
+    describeScenarios: describeScenarios,
     types: types,
     events: events,
     states: states,
@@ -704,12 +780,13 @@ runner = {
     each: each,
     repeat: repeat,
     inPageMethods: [],
-    jqMethods: ['focus', 'blur', 'click', 'mousedown', 'mouseover', 'mouseup', 'select', 'touchstart', 'touchend', 'trigger'],
+    jqMethods: ['focus', 'blur', 'click', 'mousedown', 'mouseover', 'mouseup', 'select', 'touchstart', 'touchend', 'trigger', 'hasClass'],
     jqAccessors: ['val', 'text', 'html', 'scrollTop']
 };
 locals.scenario = scenario;
 locals.repeatUntil = repeatUntil;
 locals.scene = scene;
+locals.assert = assert;
 locals.find = find;
 locals.options = options;
 locals.wait = wait;
