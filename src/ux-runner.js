@@ -16,6 +16,7 @@ var module = {},
     options = {
         async: true,
         interval: 100,
+        chainInterval: 10,
         defaultTimeout: 1000,
         frame: {
             top: 0,
@@ -84,6 +85,11 @@ function setupValues() {
     options.rootElement = options.rootElement || $(options.window.document);
     injector = runner.getInjector && runner.getInjector() || {invoke: invoke};
     runner.locals.injector = injector;
+    runner.locals.$ = function (selection) {
+        var win = runner.options.window;
+        return win.$ ? win.$(selection) : $(selection);
+    };
+    $.extend(runner.locals.$, $);
 }
 
 function init() {
@@ -93,7 +99,34 @@ function init() {
     applyInPageMethods();
 }
 
+function loadJSFile(win, src) {
+    var xmlhttp;
+    if (win.XMLHttpRequest) {// code for IE7+, Firefox, Chrome, Opera, Safari
+        xmlhttp = new XMLHttpRequest();
+    }
+    xmlhttp.open("GET", src, false);
+    xmlhttp.send();
+    var se = win.document.createElement('script');
+    se.type = "text/javascript";
+    se.text = xmlhttp.responseText;
+    win.document.getElementsByTagName('body')[0].appendChild(se);
+}
+
+function forceJQueryLoad() {
+    var win = runner.options.window;
+    // first we need to see that the target window has jquery. if it doesn't we need to force it to load it.
+    if (!win.$ && win.angular.element) {
+        for (var i in $.prototype) {
+            win.angular.element.prototype[i] = $.prototype[i];
+        }
+    }
+    if (!win.$) {
+        loadJSFile(win, "//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.0/jquery.min.js");
+    }
+}
+
 function applyInPageMethods() {
+    forceJQueryLoad();
     if (runner.inPageMethods.length) {
         each(runner.inPageMethods, function (method) {
             method.apply(runner.options.window, []);
@@ -256,8 +289,7 @@ function step(exports) {
             log("%s%s: checking %s", charPack("\t", exports.depth), exports.type, exports.label);
             clearTimeout(intv);
             dispatch(events.STEP_UPDATE, exports);
-            // make so that if no timeout it is synchronous
-            intv = options.async ? setTimeout(finalize, options.interval) : finalize();
+            createInterval(exports, finalize);
         } else {
             log("%s%s: %s, value:\"%s\" (%s)", charPack("\t", exports.depth), exports.type, exports.label, exports.value, exports.pass ? "pass" : "fail");
             walkStep = exports;
@@ -272,8 +304,21 @@ function step(exports) {
             } else {
                 clearTimeout(intv);
                 dispatch(events.STEP_UPDATE, exports);
-                intv = options.async ? setTimeout(next, options.interval) : next();
+                createInterval(exports, next);
             }
+        }
+    }
+
+    function createInterval (exports, callback) {
+        if (options.async) {
+            if (exports.type === types.STEP && exports.steps && exports.steps.length) {
+                intv = setTimeout(callback, options.chainInterval);
+            } else {
+                intv = setTimeout(callback, options.interval);
+            }
+        } else {
+            // make so that if no timeout it is synchronous
+            callback();
         }
     }
     //TODO: Should we keep this or drop it. It is very similar to until. Until is simpler.
@@ -361,7 +406,8 @@ step.COMPLETE = 2;
 function create(params) {
     params.type = params.type || types.STEP;
     params.parent = params.parent || activeStep;
-    activeStep.add(step(params));
+    params.parent.add(step(params));
+//        activeStep.add(step(params));
     return params;
 }
 
@@ -399,13 +445,14 @@ function scene(label, method, validate, timeout) {
  * @param validate
  */
 function assert(label, validate) {
-    create({
-        type: types.SCENE,
-        parentType: types.SCENARIO,
+    var params = {
+        type: activeStep.type === types.STEP || activeStep.type === types.SCENE ? types.STEP : types.SCENE,
+        parentType: activeStep.type,
         label: label,
         method: function () {},
         validate: validate
-    });
+    };
+    return activeStep.type === types.STEP ? createElementStep(params, activeStep) : create(params);
 }
 
 function wait(timeout) {
@@ -780,7 +827,7 @@ runner = {
     each: each,
     repeat: repeat,
     inPageMethods: [],
-    jqMethods: ['focus', 'blur', 'click', 'mousedown', 'mouseover', 'mouseup', 'select', 'touchstart', 'touchend', 'trigger', 'hasClass'],
+    jqMethods: ['focus', 'blur', 'click', 'mousedown', 'mouseover', 'mouseup', 'select', 'touchstart', 'touchend', 'trigger', 'hasClass', 'closest', 'find'],
     jqAccessors: ['val', 'text', 'html', 'scrollTop']
 };
 locals.scenario = scenario;
@@ -792,6 +839,8 @@ locals.options = options;
 locals.wait = wait;
 locals.waitFor = waitFor;
 locals.waitForNgEvent = waitForNgEvent;
+locals.repeat = repeat;
+locals.$ = null; // defined on setup with the $ instance that is inside the frame.
 
 dispatcher(runner);
 exports.runner = runner;

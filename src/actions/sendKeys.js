@@ -3,7 +3,7 @@
  */
 /*global jQuery*/
 function Keyboard(el, lock) {
-    this.el = el;
+    this.el = el = ux.runner.locals.$(el);
     // TODO: Break out AngularJS
     if (el.scope) {
         this.scope = el.scope();
@@ -248,7 +248,7 @@ proto.capsLock = function () {
 };
 
 proto.lock = function () {
-    var doc = $(document);
+    var doc = ux.runner.locals.$(document);
     doc.bind('mousedown', this.killEvent);
     doc.bind('keydown', this.killEvent);
     doc.bind('focus', this.killEvent);
@@ -257,7 +257,7 @@ proto.lock = function () {
 };
 
 proto.release = function () {
-    var doc = $(document);
+    var doc = ux.runner.locals.$(document);
     doc.unbind('mousedown', this.killEvent);
     doc.unbind('keydown', this.killEvent);
     doc.unbind('focus', this.killEvent);
@@ -282,12 +282,12 @@ proto.dispatchEvent = function (el, type, evt) {
 proto.createEvent = function (type, options) {
     var evt, e;
 
-    e = $.extend({ bubbles: true, cancelable: true, view: window,
+    e = ux.runner.locals.$.extend({ bubbles: true, cancelable: true, view: window,
         ctrlKey: false, altKey: false, shiftKey: false, metaKey: false,
         keyCode: 0, charCode: 0
     }, options);
 
-    if ($.isFunction(document.createEvent)) {
+    if (ux.runner.locals.$.isFunction(document.createEvent)) {
         if (type.indexOf('key') !== -1) {
             try {
                 evt = document.createEvent("KeyEvents");
@@ -297,7 +297,7 @@ proto.createEvent = function (type, options) {
             } catch (err) {
                 evt = document.createEvent("Events");
                 evt.initEvent(type, e.bubbles, e.cancelable);
-                $.extend(evt, { view: e.view,
+                ux.runner.locals.$.extend(evt, { view: e.view,
                     ctrlKey: e.ctrlKey, altKey: e.altKey, shiftKey: e.shiftKey, metaKey: e.metaKey,
                     keyCode: e.keyCode, charCode: e.charCode
                 });
@@ -308,10 +308,10 @@ proto.createEvent = function (type, options) {
         }
     } else if (document.createEventObject) {
         evt = document.createEventObject();
-        $.extend(evt, e);
+        ux.runner.locals.$.extend(evt, e);
     }
 
-    if (($.browser !== undefined) && ($.browser.msie || $.browser.opera)) {
+    if ((ux.runner.locals.$.browser !== undefined) && (ux.runner.locals.$.browser.msie || ux.runner.locals.$.browser.opera)) {
         evt.keyCode = (e.charCode > 0) ? e.charCode : e.keyCode;
         evt.charCode = undefined;
     }
@@ -348,15 +348,13 @@ function sendKeys(str, assertValue) {
     return s;
 }
 
-runner.elementMethods.push({
-    name: 'sendKeys',
-    method: function (target) {
-        return function (str, strToCompare) {
+runner.elementMethods.push(function (target) {
+        target.sendKeys = function (str, strToCompare) {
             var s = sendKeys.apply(null, arguments);
             runner.createElementStep(s, target);
             return s;
         };
-    }});
+    });
 
 /**
  * Cursor Functions
@@ -370,7 +368,8 @@ runner.elementMethods.push({
 
 runner.inPageMethods.push(function () {
     'use strict';
-    var $fn = this.jQuery.fn, input;
+    var $fn = this.jQuery ? this.jQuery.fn : this.angular.element.prototype,
+        $ = this.jQuery || this.angular.element;
     $fn.getCursorPosition = function () {
         if (this.length === 0) {
             return -1;
@@ -398,13 +397,13 @@ runner.inPageMethods.push(function () {
         if (this.length === 0) {
             return -1;
         }
-        input = this[0];
+        var input = this[0];
 
         var pos = input.value.length,
             r;
 
         if (input.createTextRange) {
-            r = document.selection.createRange().duplicate();
+            r = ux.runner.locals.window.document.selection.createRange().duplicate();
             r.moveEnd('character', input.value.length);
             if (r.text === '') {
                 pos = input.value.length;
@@ -421,7 +420,7 @@ runner.inPageMethods.push(function () {
         if (this.length === 0) {
             return -1;
         }
-        input = this[0];
+        var input = this[0];
 
         var pos = input.value.length,
             r;
@@ -444,7 +443,7 @@ runner.inPageMethods.push(function () {
         if (this.length === 0) {
             return this;
         }
-        input = this[0];
+        var input = this[0];
 
         if (input.createTextRange) {
             var range = input.createTextRange();

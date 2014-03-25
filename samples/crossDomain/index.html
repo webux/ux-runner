@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RUNNER: Framed</title>
+    <link rel="stylesheet" type="text/css" href="../runner.css">
+    <script src="js/porthole.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+    <script src="../../build/ux-runner.js"></script>
+    <!--<script src="../build/ux-runner.min.js"></script>-->
+    <!--<script src="../build/angular-runner.js"></script>-->
+    <!--<script src="../build/angular-runner.min.js"></script>-->
+    <script src="../../test/e2e/scenarios.js"></script>
+    <script>
+
+        //        function setupFrame() {
+        //            var win = $('#targetFrame')[0].contentWindow,
+        //                angularRoot = win.angular.element(win.document);
+        //            ux.runner.options.window = win;
+        //            ux.runner.options.rootElement = angularRoot;
+        //        }
+        //
+        //        function getDescriptions() {
+        //            setupFrame();
+        //            console.log(ux.runner.describeScenarios());
+        //        }
+        //
+        //        ux.runner.config({
+        //            autoStart: function () {
+        //                setTimeout(function () {
+        //                    setupFrame();
+        //                    ux.runner.run();
+        //                }, 1000);
+        //            },
+        //            interval: 50,
+        //            defaultTimeout: 1000,
+        //            frame: {
+        //                width: 1024,
+        //                height: 768,
+        //                float: "right"
+        //            },
+        //            timeouts: {
+        //                short: 1000,
+        //                medium: 10000,
+        //                long: 30000,
+        //                forever: 60000
+        //            }
+        //        });
+
+        var guestDomain = 'xyz.com';
+
+        function onMessage1(messageEvent) {
+            Porthole.trace("onMessage1");
+            if (messageEvent.origin == "http://" + guestDomain) {
+                if (messageEvent.data["color"]) {
+                    document.body.bgColor = messageEvent.data["color"];
+                }
+                if (messageEvent.data["expanded"]) {
+                    el = document.getElementById('guestFrame1');
+                    el.setAttribute('height', "250px");
+                } else {
+                    el = document.getElementById('guestFrame1');
+                    el.setAttribute('height', "150px");
+                }
+            }
+        }
+
+        /*
+         Use a different message handler for the 2nd window so we can customize the meaning of expand/collapse
+         messages for instance.
+         */
+        function onMessage2(messageEvent) {
+            Porthole.trace("onMessage2");
+            if (messageEvent.origin == "http://" + guestDomain) {
+                if (messageEvent.data["color"]) {
+                    document.body.bgColor = messageEvent.data["color"];
+                }
+                if (messageEvent.data["expanded"]) {
+                    el = document.getElementById('guestFrame2');
+                    el.setAttribute('width', "600px");
+                } else {
+                    el = document.getElementById('guestFrame2');
+                    el.setAttribute('width', "500px");
+                }
+            }
+        }
+
+        var windowProxy1, windowProxy2;
+        window.onload = function () {
+            Porthole.trace("onload");
+            // Create a proxy window to send to and receive message from the guest iframe
+            windowProxy1 = new Porthole.WindowProxy('http://' + guestDomain + '/proxy.html', 'guestFrame1');
+            windowProxy1.addEventListener(onMessage1);
+
+            // Create a proxy window to send to and receive message from the guest iframe
+            windowProxy2 = new Porthole.WindowProxy('http://' + guestDomain + '/proxy.html', 'guestFrame2');
+            windowProxy2.addEventListener(onMessage2);
+        };
+
+    </script>
+</head>
+<body>
+<iframe id="targetFrame" src="http://localhost:63342/ux-runner/samples/crossDomain/inFrame.html"></iframe>
+</body>
+</html>

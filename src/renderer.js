@@ -34,6 +34,7 @@ function renderer() {
                         '<a href="javascript:void(0)" class="runner-plus runner-button" title="Increase Speed">+</a> ' +
                         '<a href="javascript:void(0)" class="runner-minus runner-button" title="Decrease Speed">-</a> ' +
                         '<a href="javascript:void(0)" class="runner-details runner-button" title="Click to show or hide details.">?</a> ' +
+                        '<a href="javascript:void(0)" class="runner-minimize runner-button" title="Click to minimize the runner.">_</a> ' +
                     '</div>' +
                     ' <a href="javascript:void(0)" class="runner-complete"></a> ' +
                 '</div>' +
@@ -114,7 +115,7 @@ function renderer() {
     }
 
     function isChainStep(step) {
-        return step.type === ux.runner.types.STEP;//!!(step.parent && step.parent.element);
+        return step && step.type === ux.runner.types.STEP;//!!(step.parent && step.parent.element);
     }
 
     function writeLabel(step, paused, el) {
@@ -134,7 +135,7 @@ function renderer() {
             var parentIsChain = isChainStep(step.parent),
                 indent = parentIsChain ? 4 : step.depth * 20,
                 isChain = isChainStep(step);
-            if (isChain && lastStep && lastStep.depth >= step.depth && step !== step.parent.steps[0]) {
+            if (isChain && lastStep && lastStep.depth >= step.depth && step.parent && step !== step.parent.steps[0]) {
                 content.append('<div class="runner-break"></div>');
             }
             content.append('<div id="' + step.id + '" class="runner-pending runner-' + step.type + (isChain ? '-chain' : '') + '" style="margin-left: ' + indent + 'px;margin-right: 0px;"></div>');
@@ -223,6 +224,10 @@ function renderer() {
         }
     }
 
+    function toggleMinimize() {
+        overlay.toggleClass('minimize');
+    }
+
     function showDetails() {
         content.removeClass('compact');
     }
@@ -265,6 +270,7 @@ function renderer() {
         $('.runner-next').click(runner.next);
         $('.runner-resume').click(runner.resume);
         $('.runner-details').click(toggleDetails);
+        $('.runner-minimize').click(toggleMinimize);
         $('.runner-plus').click(plus);
         $('.runner-minus').click(minus);
     }
@@ -282,6 +288,7 @@ function renderer() {
         $('.runner-next').unbind('click', runner.next);
         $('.runner-resume').unbind('click', runner.resume);
         $('.runner-details').unbind('click', toggleDetails);
+        $('.runner-minimize').unbind('click', toggleMinimize);
         $('.runner-plus').unbind('click', plus);
         $('.runner-minus').unbind('click', minus);
     }

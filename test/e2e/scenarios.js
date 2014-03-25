@@ -29,7 +29,7 @@
 
             scenario("test until", function () {
                 scene("should run until and increment count to 10", function () {
-                    find("input").val("").until("add letter 'a'", function () {
+                    find("input").sendMouse(true).val("").until("add letter 'a'", function () {
                         this.element.val(this.element.val() + 'a');
                         this.value = this.element.val();
                         return this.value && this.value.length >= 10;

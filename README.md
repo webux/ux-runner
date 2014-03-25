@@ -14,7 +14,7 @@ Sample: [View simple example](https://rawgithub.com/webux/ux-runner/master/sampl
 **jQuery selectors** yes I know you shouldn't use jQuery with Angular. But it is so much easier than trying to find which model property something is binding to. And because we look for selectors it is easy to wait for them. Runner is built on the concept of waiting. So for "find" it will keep trying to select that item until it times out. This means that if your application is running slow, multiple service calls, or misc other things before it is ready that is not a problem. You just increase the timeout time so it will keep trying as long as there is time.
 
 ## Getting Started ##
-The following files are included in the application.
+The following files are included in the application. Please see the samples and use the "framed" example there as a way to start your applications. This enables you to not need to include runner or any other libraries into your project. They just need to run on the same domain.
 
 - ux-runner.js (the core of the runner)
 - config.js (config options for the runner)
@@ -64,7 +64,7 @@ Scenarios and scenes have the ability to use injection both from runner and from
 	scenario("Test my page", function (userModel) {
 		if (!user.username) {
 			scene("login user", function (loginModel) {
-				loginModel.login('user1', 'angularRocks');
+				loginModel.login('user1', 'angularRocks!');
 			});
 		}
 	}
@@ -121,29 +121,30 @@ The methods that are already defined fall into a couple of categories. There are
 - **scene**(label:String, method:function, validate:function, timeout:Milliseconds): creates a new scene. Validate is a second method that you can pass that will check a condition. If the condition returns true it passes, if it returns false it fails, if you fail to pass it then it passes.
 - **find**(selector:String, timeout:Milliseconds, label:String): does a jquery seletion and waits for it to be ready. This will keep trying until it times out of the selection is not successful.
 - **options**: the configs. options.timeouts.short gives you milliseconds. It has short, medium, long, and forever.
+- **wait**(milliseconds:Number): When you want to wait, but you don't know exactly what for.
 - **waitFor**(label:String, method:function, timeout:Milliseconds): wait for the function to return true
 - **waitForNgEvent**(event:String, timeout:Milliseconds): wait for an event... (not complete).
 - **waitForJQEvent**: wait for a jquery event. (not complete).
+- **assert**(label:String, method:function): Assert is a method that is meant to only evaluate once. It expects the method to return a boolean true or false as a pass or fail result.
+- **repeat**(method:function, count:Int): It can be handy to have a method repeat multiple times. This will cause a method to repeat multiple times. 
 
 For the find API it is like jQuery methods except one additional few that are quite note worthy. So you have your standard, click, focus, blur, etc.
 
-- sendMouse(focus): this does a series of other methods to simulate a more realistic event. This will do a mousedown, focus, mouseup, click. This simulates the actual event pattern when a user clicks. It can be handy if you have directives on inputs that are listening for something particular in the sequence. "focus" if this is set it will also cause focus on the element.
-- sendKeys(): uh,... this one is a topic all of it's own. So check the heading below.
-- scroll(): this just includes some default methods such as scrollUp or scrollDown making it a little more handy.
+- **sendMouse**(focus): this does a series of other methods to simulate a more realistic event. This will do a mousedown, focus, mouseup, click. This simulates the actual event pattern when a user clicks. It can be handy if you have directives on inputs that are listening for something particular in the sequence. "focus" if this is set it will also cause focus on the element.
+- **sendKeys**(): uh,... this one is a topic all of it's own. So check the heading below.
+- **scroll**(): this just includes some default methods such as scrollUp or scrollDown making it a little more handy.
 - sendTap(focus): this simulates touchstart and touchend events with or without focus
-- custom(label, method, validator, timeout): As long as the validator method returns false and it has not timed out this will keep executing the method, and the validation to check.
-- until(label, validator, timeout): As long as the validator returns false and it has not timed out the validator will be checked. The main difference between this and custom is that custom allows them to be separated, but until is often more handy.
+- **custom**(label, method, validator, timeout): As long as the validator method returns false and it has not timed out this will keep executing the method, and the validation to check.
+- **until**(label, validator, timeout): As long as the validator returns false and it has not timed out the validator will be checked. The main difference between this and custom is that custom allows them to be separated, but until is often more handy.
 
 Noteable methods:
 
-- done(): done is provided on any step. However, it is really only useful in custom or until methods where you want a condition to keep going and then still return a false because it failed another condition. "this.done()" from inside of a step or chain method will immediately invoke that it finishes on the next interval.
-- exec(): this is really for internal use, but can be handy externally as well. This will automatically execute this method against the current step using the invoke method so that all injections for this method get included.
+- **done**(): done is provided on any step. However, it is really only useful in custom or until methods where you want a condition to keep going and then still return a false because it failed another condition. "this.done()" from inside of a step or chain method will immediately invoke that it finishes on the next interval.
+- **exec**(): this is really for internal use, but can be handy externally as well. This will automatically execute this method against the current step using the invoke method so that all injections for this method get included.
 
 Info events can be chained. So you can do one selection and then do multiple chained events.
 
 	find(".button").focus().select().click();
-
-**[TODO]** There is a bug with sendKeys()... that it won't chain after it. It will chain up to it.
 
 ## sendKeys ##
 Send keys simulates user input. It takes patterns from a string to enter those values into input fields. Here is an example string.
@@ -155,12 +156,14 @@ So what this does is find the input. Then it sends the keys into the input for t
 ##Conditions##
 Conditions are easy by using the scenes. Each scene doesn't run until it's previous scene has finished all of it's children. So we can do some things in one scene, and then in the next scene use jquery to check some dom conditions and add additional steps based on what the condition results in.
 
-	scenario("scenario one", function () {
+	scenario("scenario one", function () {	
 		scene("scene one", function () {
 			find("button").click();
 		});
-
-		scene("scene two is a condition", function () {
+		// notice by injecting $ that it will inject the $ from the framed 
+		// page if you are using frames. Otherwise it will get the one from
+		// the page you are in.
+		scene("scene two is a condition", function ($) {
             // use jquery for immediate checking.
 			if($('.items').length) {
 				// add steps to continue on if items are found.

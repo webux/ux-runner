@@ -7,9 +7,15 @@
     z-index: 10000;
     font-family: arial;
     overflow: hidden;
+    outline: 1px solid #333333;
 }
 
-.runner-highlight-container {
+.runner-overlay.minimize {
+    width: 562px;
+    height: 100px;
+}
+
+.runner-highlight-container, .runner-highlight-container * {
     pointer-events: none;
 }
 
@@ -18,7 +24,6 @@
     border: 4px solid #FF0000;
     border-radius: 10px;
     position: absolute;
-    pointer-events: none;
 }
 
 .runner-highlighter-empty {
@@ -176,7 +181,7 @@
     border-radius: 6px;
 }
 
-.runner-step-count, .runner-timed-out, .runner-step-paused, .runner-close, .runner-pause, .runner-next, .runner-resume, .runner-complete, .runner-details, .runner-plus, .runner-minus, .runner-restart {
+.runner-step-count, .runner-timed-out, .runner-step-paused, .runner-close, .runner-pause, .runner-next, .runner-resume, .runner-complete, .runner-details, .runner-minimize .runner-plus, .runner-minus, .runner-restart {
     display: inline-block;
     font-size: 12px;
     background: #000000;
@@ -197,6 +202,11 @@
     text-align: center;
     font-size: 14;
     padding: 2px;
+    line-height: 16px;
+    min-height: 16px;
+    min-width: 16px;
+    display: inline-block;
+    vertical-align: middle;
 }
 
 .runner-timed-out {
@@ -230,11 +240,12 @@
     font-weight: bold;
 }
 
-.runner-next, .runner-details, .runner-plus, .runner-minus, .runner-restart {
+.runner-next, .runner-details, .runner-minimize, .runner-plus, .runner-minus, .runner-restart {
     background: #336699;
     color: #FFFFFF;
     text-decoration: none;
     font-weight: bold;
+    vertical-align: middle;
 }
 
 .runner-resume.unpaused {

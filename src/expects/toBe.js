@@ -9,9 +9,9 @@ runner.elementMethods.push(function (target) {
             validate: function () {
                 var result = $.trim(target.value) === value;
                 if (!result) {
-                    s.label = "expected " + target.value + " to be " + value;
+                    s.label = "expected \"" + target.value + "\" to be \"" + value + "\"";
                 } else {
-                    s.label = "toBe " + value;
+                    s.label = "toBe \"" + value + "\"";
                 }
                 return result;
             }
